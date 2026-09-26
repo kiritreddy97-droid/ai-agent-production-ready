@@ -1,0 +1,14 @@
+services:
+  agent:
+    build: .
+    image: ai-agent:latest
+    container_name: ai-agent
+    env_file: .env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - agent-logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  agent-logs:

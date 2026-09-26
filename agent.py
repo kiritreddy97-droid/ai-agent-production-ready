@@ -51,7 +51,17 @@ logging.basicConfig(
 log = logging.getLogger("agent")
 
 # ─── OpenAI client ────────────────────────────────────────────────────────────
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+# Created lazily so the module (and the API's /health endpoint) can load
+# before OPENAI_API_KEY is configured.
+_client: Optional[OpenAI] = None
+
+
+def get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        settings.validate()
+        _client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    return _client
 
 
 # ─── Data models ──────────────────────────────────────────────────────────────
@@ -272,7 +282,7 @@ class AIAgent:
         delay = 1.0
         for attempt in range(1, settings.MAX_RETRIES + 1):
             try:
-                return client.chat.completions.create(
+                return get_client().chat.completions.create(
                     model=settings.MODEL,
                     messages=messages,
                     tools=TOOL_SCHEMAS,

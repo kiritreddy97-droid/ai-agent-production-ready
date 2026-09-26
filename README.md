@@ -57,6 +57,7 @@ ai-agent-production-ready/
 ├── Dockerfile          # Production Docker image (multi-stage)
 ├── docker-compose.yml  # One-command Docker deployment
 ├── Makefile            # Developer shortcuts
+├── tests/              # Offline test suite (fake OpenAI client, no API key needed)
 └── README.md           # This file
 ```
 
