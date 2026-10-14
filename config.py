@@ -21,12 +21,24 @@ class Settings:
     SERPER_API_KEY: str  = os.getenv("SERPER_API_KEY", "")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
     LOG_FILE: str  = os.getenv("LOG_FILE", "agent.log")
+    # Comma-separated origins allowed to call the API from a browser, e.g.
+    # "https://kirit-daida.netlify.app,https://myapp.com". "*" allows any.
+    ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "*")
+    # Comma-separated tool names to turn off (recommended for public sites)
+    DISABLED_TOOLS: str  = os.getenv("DISABLED_TOOLS", "")
+    RATE_LIMIT_PER_MIN: int = int(os.getenv("RATE_LIMIT_PER_MIN", "20"))
     REDIS_URL: str   = os.getenv("REDIS_URL", "")
     SESSION_TTL: int = int(os.getenv("SESSION_TTL", "3600"))
 
     def validate(self):
         if not self.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY not set. Copy .env.example to .env")
+
+    def validate_or_503(self):
+        """For API handlers: turn a missing key into a clean HTTP 503."""
+        if not self.OPENAI_API_KEY:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=503, detail="OPENAI_API_KEY not configured")
 
     def __repr__(self):
         k = self.OPENAI_API_KEY[:8]+"..." if self.OPENAI_API_KEY else "(not set)"
