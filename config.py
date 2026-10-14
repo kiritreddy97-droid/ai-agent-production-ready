@@ -28,6 +28,12 @@ class Settings:
         if not self.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY not set. Copy .env.example to .env")
 
+    def validate_or_503(self):
+        """For API handlers: turn a missing key into a clean HTTP 503."""
+        if not self.OPENAI_API_KEY:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=503, detail="OPENAI_API_KEY not configured")
+
     def __repr__(self):
         k = self.OPENAI_API_KEY[:8]+"..." if self.OPENAI_API_KEY else "(not set)"
         return f"Settings(model={self.MODEL}, port={self.API_PORT}, key={k})"
