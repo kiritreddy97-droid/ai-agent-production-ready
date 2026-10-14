@@ -30,3 +30,17 @@ def test_auth_enforced(monkeypatch):
     monkeypatch.setattr(settings, "API_KEY", "secret")
     assert client.get("/tools").status_code == 401
     assert client.get("/tools", headers={"Authorization": "Bearer secret"}).status_code == 200
+
+
+def test_cors_header():
+    r = client.options("/chat", headers={"Origin": "https://example.com",
+        "Access-Control-Request-Method": "POST"})
+    assert r.headers.get("access-control-allow-origin") in ("*", "https://example.com")
+
+
+def test_rate_limit(monkeypatch):
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "")
+    monkeypatch.setattr(settings, "RATE_LIMIT_PER_MIN", 2)
+    api._hits.clear()
+    codes = [client.post("/chat", json={"question": "hi"}).status_code for _ in range(3)]
+    assert codes == [503, 503, 429]

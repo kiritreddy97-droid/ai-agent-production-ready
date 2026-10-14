@@ -290,6 +290,28 @@ gcloud run deploy ai-agent \
 
 ---
 
+## Add the Chat Widget to Your Websites
+
+One snippet works on any site (portfolio, web app, plain website). Host the API first (Render / Cloud Run / Docker), then paste before `</body>`:
+
+```html
+<script src="https://YOUR-SITE/agent-widget.js"
+        data-api="https://YOUR-API-URL"
+        data-title="Ask Kirit's AI"></script>
+```
+
+Host `widget/agent-widget.js` alongside each site (or serve it from any static host). On the API server set:
+
+```
+ALLOWED_ORIGINS=https://kirit-daida.netlify.app,https://your-app.com,https://your-site.com
+DISABLED_TOOLS=python_executor,file_reader
+RATE_LIMIT_PER_MIN=20
+```
+
+Do not put `API_KEY` in `data-key` on public pages: visitors can read it. Use `ALLOWED_ORIGINS` + rate limiting + `DISABLED_TOOLS` instead. Try it locally with `widget/demo.html`.
+
+---
+
 ## Available Tools
 
 | Tool | Description | Requires Key? |
