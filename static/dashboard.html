@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Control Room</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f4f2;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #e2e1dc;
+  --text: #0b0b0b;
+  --text-2: #52514e;
+  --text-3: #7a7974;
+  --accent: #2a78d6;
+  --accent-soft: #cde2fb;
+  --bar: #2a78d6;
+  --good: #0ca30c;
+  --good-text: #006300;
+  --warning: #fab219;
+  --critical: #d03b3b;
+  --critical-text: #b42f2f;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111110; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
+    --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86;
+    --accent: #3987e5; --accent-soft: #17345a; --bar: #3987e5;
+    --good-text: #3fcf3f; --critical-text: #f07a7a;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111110; --surface: #1a1a19; --surface-2: #232321; --border: #33332f;
+  --text: #f0efec; --text-2: #c3c2b7; --text-3: #8f8e86;
+  --accent: #3987e5; --accent-soft: #17345a; --bar: #3987e5;
+  --good-text: #3fcf3f; --critical-text: #f07a7a;
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 0 16px 40px; }
+
+/* ── Header ── */
+header {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.hdr { display: flex; align-items: center; gap: 12px; padding: 12px 16px; max-width: 1400px; margin: 0 auto; flex-wrap: wrap; }
+.brand { font-weight: 650; font-size: 16px; letter-spacing: -.01em; }
+.brand small { font-weight: 400; color: var(--text-3); margin-left: 6px; }
+.spacer { flex: 1; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px; font-size: 12px;
+  background: var(--surface); border: 1px solid var(--border); color: var(--text-2);
+  white-space: nowrap;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
+.dot.on { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent); }
+.dot.off { background: var(--critical); }
+.btn {
+  border: 1px solid var(--border); background: var(--surface); border-radius: 8px;
+  padding: 6px 12px; cursor: pointer; font-size: 13px;
+}
+.btn:hover { border-color: var(--text-3); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--critical-text); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.icon-btn { padding: 6px 9px; }
+
+.banner {
+  margin: 16px 0 0; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--warning) 60%, var(--border));
+  background: color-mix(in srgb, var(--warning) 14%, var(--surface));
+  display: none;
+}
+.banner.show { display: block; }
+.banner code { font-family: var(--mono); font-size: 12px; }
+
+/* ── KPI tiles ── */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 16px 0; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+.kpi .label { font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.kpi .value { font-size: 24px; font-weight: 650; letter-spacing: -.02em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.kpi .sub { font-size: 12px; color: var(--text-3); }
+
+/* ── Layout ── */
+.grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 980px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); min-width: 0; }
+.card-h { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.card-h h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.card-h .hint { color: var(--text-3); font-size: 12px; }
+.card-b { padding: 14px; }
+.empty { color: var(--text-3); text-align: center; padding: 28px 12px; font-size: 13px; }
+
+/* ── Assign form ── */
+.form { display: grid; gap: 10px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
+label.f { display: grid; gap: 4px; align-content: start; font-size: 12px; color: var(--text-2); }
+input[type=text], textarea, input[type=password] {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  background: var(--bg); outline: none;
+}
+textarea { resize: vertical; min-height: 84px; }
+input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.seg button { border: 0; background: transparent; padding: 7px 12px; cursor: pointer; font-size: 13px; color: var(--text-2); }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed=true] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
+.form-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.form-foot .hint { color: var(--text-3); font-size: 12px; }
+.examples { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px dashed var(--border); background: transparent; border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--text-2); cursor: pointer; }
+.chip:hover { border-style: solid; color: var(--text); }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+.tab { border: 0; background: transparent; padding: 5px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--text-2); }
+.tab:hover { background: var(--surface-2); }
+.tab[aria-selected=true] { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.tab .n { color: var(--text-3); font-variant-numeric: tabular-nums; margin-left: 4px; font-weight: 400; }
+
+/* ── Task list ── */
+.tasks { list-style: none; margin: 0; padding: 0; max-height: 560px; overflow: auto; }
+.task {
+  display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 10px; align-items: center;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.task:last-child { border-bottom: 0; }
+.task:hover { background: var(--surface-2); }
+.task .t { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task .m { font-size: 12px; color: var(--text-3); display: flex; gap: 10px; flex-wrap: wrap; }
+.task .r { font-size: 12px; color: var(--text-3); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; border: 1px solid transparent; }
+.status .ic { font-size: 11px; line-height: 1; }
+.st-queued    { color: var(--text-2); background: var(--surface-2); border-color: var(--border); }
+.st-running   { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.st-done      { color: var(--good-text); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.st-failed    { color: var(--critical-text); background: color-mix(in srgb, var(--critical) 12%, transparent); }
+.st-cancelled { color: var(--text-3); background: transparent; border-color: var(--border); }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.prio { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); }
+.prio.high { color: var(--critical-text); }
+
+/* ── Workers ── */
+.workers { display: grid; gap: 8px; }
+.worker { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); min-width: 0; }
+.worker .name { font-weight: 600; font-size: 13px; flex: none; }
+.worker .what { color: var(--text-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.worker .what a { color: var(--accent); cursor: pointer; text-decoration: none; }
+
+/* ── Activity feed ── */
+.feed { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow: auto; font-size: 13px; }
+.ev { display: grid; grid-template-columns: 22px minmax(0,1fr) auto; gap: 8px; padding: 7px 14px; border-bottom: 1px solid var(--border); align-items: start; }
+.ev:last-child { border-bottom: 0; }
+.ev.new { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
+.ev .ic { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 12px; background: var(--surface-2); color: var(--text-2); }
+.ev .ic.err { background: color-mix(in srgb, var(--critical) 16%, transparent); color: var(--critical-text); }
+.ev .ic.ok { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good-text); }
+.ev .ic.tool { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.ev .h { font-weight: 600; }
+.ev .h .sid { font-weight: 400; color: var(--text-3); font-family: var(--mono); font-size: 11px; margin-left: 6px; }
+.ev .d { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.ev .d code { font-family: var(--mono); font-size: 12px; }
+.ev .time { color: var(--text-3); font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ── Bars (tool usage) ── */
+.bars { display: grid; gap: 8px; }
+.bar-row { display: grid; grid-template-columns: 120px minmax(0,1fr) 44px; gap: 10px; align-items: center; font-size: 13px; }
+.bar-row .lbl { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 12px; }
+.bar-track { height: 14px; position: relative; cursor: default; }
+.bar-track::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px solid var(--border); }
+.bar-fill { height: 100%; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; transition: width .4s ease; }
+.bar-row .val { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.bar-row .val small { color: var(--critical-text); display: block; font-size: 11px; }
+.tooltip {
+  position: fixed; z-index: 50; pointer-events: none; background: var(--text); color: var(--surface);
+  padding: 6px 9px; border-radius: 7px; font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .1s;
+}
+
+/* ── Sessions ── */
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th { text-align: left; font-weight: 500; color: var(--text-3); font-size: 12px; padding: 6px 14px; border-bottom: 1px solid var(--border); }
+.tbl td { padding: 7px 14px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl td.mono { font-family: var(--mono); font-size: 12px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbl .num { text-align: right; }
+
+/* ── Drawer ── */
+.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 30; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.scrim.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100vw); z-index: 40;
+  background: var(--surface); border-left: 1px solid var(--border);
+  transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column;
+}
+.drawer.open { transform: none; }
+.drawer-h { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-start; }
+.drawer-h h3 { margin: 0; font-size: 16px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.drawer-b { padding: 16px; overflow: auto; flex: 1; display: grid; gap: 16px; align-content: start; }
+.drawer-f { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.meta > div { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; min-width: 0; }
+.meta .k { font-size: 11px; color: var(--text-3); }
+.meta .v { font-weight: 600; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sec h4 { margin: 0 0 6px; font-size: 12px; color: var(--text-2); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.box { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; max-height: 360px; overflow: auto; }
+.box.err { border-color: color-mix(in srgb, var(--critical) 50%, var(--border)); color: var(--critical-text); }
+.timeline { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--border); display: grid; gap: 10px; }
+.timeline li { position: relative; font-size: 13px; }
+.timeline li::before { content: ""; position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--text-3); }
+.timeline li.tool::before { border-color: var(--accent); }
+.timeline li.ok::before { border-color: var(--good); background: var(--good); }
+.timeline li.err::before { border-color: var(--critical); background: var(--critical); }
+.timeline .th { font-weight: 600; }
+.timeline .th span { color: var(--text-3); font-weight: 400; font-size: 12px; margin-left: 6px; }
+.timeline pre { margin: 4px 0 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-2); background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; max-height: 180px; overflow: auto; }
+
+/* ── Modal ── */
+.modal { position: fixed; inset: 0; z-index: 60; display: none; place-items: center; background: rgba(0,0,0,.4); padding: 16px; }
+.modal.open { display: grid; }
+.modal .card { width: min(420px, 100%); }
+
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0; z-index: 70;
+  background: var(--text); color: var(--surface); padding: 9px 14px; border-radius: 9px; font-size: 13px; transition: all .2s; max-width: calc(100vw - 32px); }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<header>
+  <div class="hdr">
+    <div class="brand">Agent Control Room<small id="model">—</small></div>
+    <span class="pill" id="conn"><span class="dot" id="connDot"></span><span id="connText">Connecting…</span></span>
+    <span class="pill" id="keyPill" title="OpenAI API key"><span class="dot" id="keyDot"></span><span id="keyText">OpenAI key</span></span>
+    <div class="spacer"></div>
+    <button class="btn icon-btn" id="pauseBtn" title="Pause live updates">❚❚ Pause</button>
+    <button class="btn icon-btn" id="authBtn" title="Dashboard API key">🔑</button>
+    <button class="btn icon-btn" id="themeBtn" title="Toggle light / dark">☾ Theme</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="banner" id="keyBanner">
+    <strong>OpenAI key not configured.</strong> Tasks will fail until you add
+    <code>OPENAI_API_KEY</code> to <code>.env</code> and restart the server.
+  </div>
+
+  <section class="kpis" aria-label="Key metrics">
+    <div class="kpi"><div class="label">Queued</div><div class="value" id="k-queued">0</div><div class="sub">waiting for a worker</div></div>
+    <div class="kpi"><div class="label">Running</div><div class="value" id="k-running">0</div><div class="sub" id="k-workers">— workers</div></div>
+    <div class="kpi"><div class="label">Completed</div><div class="value" id="k-done">0</div><div class="sub" id="k-success">—</div></div>
+    <div class="kpi"><div class="label">Failed</div><div class="value" id="k-failed">0</div><div class="sub" id="k-errors">0 run errors</div></div>
+    <div class="kpi"><div class="label">Tokens used</div><div class="value" id="k-tokens">0</div><div class="sub" id="k-llm">0 LLM calls</div></div>
+    <div class="kpi"><div class="label">Avg LLM latency</div><div class="value" id="k-lat">—</div><div class="sub">per model call</div></div>
+    <div class="kpi"><div class="label">Tool calls</div><div class="value" id="k-tools">0</div><div class="sub" id="k-toolerr">0 errors</div></div>
+    <div class="kpi"><div class="label">Uptime</div><div class="value" id="k-up">—</div><div class="sub" id="k-runs">0 agent runs</div></div>
+  </section>
+
+  <div class="grid">
+    <div class="col">
+      <!-- Assign work -->
+      <section class="card">
+        <div class="card-h"><h2>Assign work</h2><span class="hint">Runs in the background — you can queue as many as you like</span></div>
+        <div class="card-b">
+          <form class="form" id="taskForm" autocomplete="off">
+            <label class="f"><span>What should the agent do?</span>
+              <textarea id="fPrompt" required maxlength="8000" placeholder="e.g. Search the web for this week's AI news and summarise the top 3 stories"></textarea>
+            </label>
+            <div class="examples" id="examples"></div>
+            <div class="row2">
+              <label class="f"><span>Title <span style="color:var(--text-3)">(optional)</span></span>
+                <input type="text" id="fTitle" maxlength="120" placeholder="Defaults to the first line of the prompt">
+              </label>
+              <label class="f"><span>Session <span style="color:var(--text-3)">(optional — reuse to keep memory)</span></span>
+                <input type="text" id="fSession" maxlength="128" placeholder="New session per task">
+              </label>
+            </div>
+            <div class="form-foot">
+              <div class="seg" role="group" aria-label="Priority" id="prio">
+                <button type="button" data-p="high" aria-pressed="false">High</button>
+                <button type="button" data-p="normal" aria-pressed="true">Normal</button>
+                <button type="button" data-p="low" aria-pressed="false">Low</button>
+              </div>
+              <div class="spacer"></div>
+              <span class="hint">Ctrl/⌘ + Enter</span>
+              <button class="btn primary" type="submit" id="submitBtn">Assign task</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Task board -->
+      <section class="card">
+        <div class="card-h">
+          <h2>Tasks</h2>
+          <div class="spacer"></div>
+          <div class="tabs" role="tablist" id="tabs"></div>
+        </div>
+        <ul class="tasks" id="taskList"></ul>
+      </section>
+    </div>
+
+    <div class="col">
+      <!-- Workers -->
+      <section class="card">
+        <div class="card-h"><h2>Workers</h2><span class="hint" id="workersHint"></span></div>
+        <div class="card-b"><div class="workers" id="workers"></div></div>
+      </section>
+
+      <!-- Activity -->
+      <section class="card">
+        <div class="card-h">
+          <h2>Live activity</h2>
+          <span class="hint" id="feedHint">updates every 2s</span>
+          <div class="spacer"></div>
+          <div class="tabs" role="tablist" id="feedTabs">
+            <button class="tab" role="tab" data-f="all" aria-selected="true">All</button>
+            <button class="tab" role="tab" data-f="tools" aria-selected="false">Tools</button>
+            <button class="tab" role="tab" data-f="tasks" aria-selected="false">Tasks</button>
+            <button class="tab" role="tab" data-f="errors" aria-selected="false">Errors</button>
+          </div>
+        </div>
+        <ul class="feed" id="feed"></ul>
+      </section>
+
+      <!-- Tool usage -->
+      <section class="card">
+        <div class="card-h"><h2>Tool usage</h2><span class="hint">calls since server start</span></div>
+        <div class="card-b"><div class="bars" id="bars"></div></div>
+      </section>
+
+      <!-- Sessions -->
+      <section class="card">
+        <div class="card-h"><h2>Sessions</h2><span class="hint">conversation memory held by the agent</span></div>
+        <div id="sessions"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- Task drawer -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="dTitle">
+  <div class="drawer-h">
+    <h3 id="dTitle">Task</h3>
+    <span id="dStatus"></span>
+    <button class="btn icon-btn" id="dClose" title="Close">✕</button>
+  </div>
+  <div class="drawer-b" id="dBody"></div>
+  <div class="drawer-f" id="dFoot"></div>
+</aside>
+
+<!-- Auth modal -->
+<div class="modal" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <form class="card" id="authForm">
+    <div class="card-h"><h2 id="authTitle">Dashboard API key</h2></div>
+    <div class="card-b form">
+      <span style="color:var(--text-2);font-size:13px">This server requires the <code>API_KEY</code> from its <code>.env</code>. It is stored only in this browser.</span>
+      <input type="password" id="authInput" placeholder="API key" autocomplete="current-password">
+      <div class="form-foot"><div class="spacer"></div>
+        <button type="button" class="btn" id="authCancel">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="tooltip" id="tip"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+// ─── Utilities ───────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
+};
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) n.append(c instanceof Node ? c : String(c));
+  return n;
+}
+const fmtInt = (n) => (n ?? 0).toLocaleString();
+function fmtCompact(n) {
+  n = n || 0;
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + "M";
+  if (n >= 1e4) return (n / 1e3).toFixed(0) + "k";
+  return n.toLocaleString();
+}
+function fmtMs(ms) {
+  if (ms == null) return "—";
+  if (ms < 1000) return ms + " ms";
+  if (ms < 60000) return (ms / 1000).toFixed(1) + " s";
+  return Math.floor(ms / 60000) + "m " + Math.round((ms % 60000) / 1000) + "s";
+}
+function fmtDur(s) {
+  if (s < 60) return s + "s";
+  if (s < 3600) return Math.floor(s / 60) + "m";
+  if (s < 86400) return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m";
+  return Math.floor(s / 86400) + "d " + Math.floor((s % 86400) / 3600) + "h";
+}
+function ago(ts) {
+  const s = Math.max(0, Math.round(Date.now() / 1000 - ts));
+  if (s < 5) return "just now";
+  if (s < 60) return s + "s ago";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return new Date(ts * 1000).toLocaleDateString();
+}
+const clock = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const short = (v, n = 140) => { v = typeof v === "string" ? v : JSON.stringify(v); return v && v.length > n ? v.slice(0, n) + "…" : (v || ""); };
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._h); toast._h = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+// ─── API ─────────────────────────────────────────────────────────────────────
+class AuthError extends Error {}
+async function api(path, opts = {}) {
+  const headers = { "Content-Type": "application/json" };
+  const key = store.get("agent.apiKey");
+  if (key) headers.Authorization = "Bearer " + key;
+  const r = await fetch(path, { ...opts, headers });
+  if (r.status === 401) throw new AuthError("Unauthorized");
+  const body = r.headers.get("content-type")?.includes("json") ? await r.json() : await r.text();
+  if (!r.ok) throw new Error(body?.detail ? (typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail)) : r.statusText);
+  return body;
+}
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const state = {
+  lastSeq: 0, events: [], feedFilter: "all", taskFilter: "all",
+  tasks: [], overview: null, openTask: null, paused: false, priority: "normal",
+  firstLoad: true, failures: 0,
+};
+const MAX_FEED = 300;
+
+// ─── Status badge ────────────────────────────────────────────────────────────
+const STATUS = {
+  queued:    { ic: "○", label: "Queued" },
+  running:   { ic: "◌", label: "Running" },
+  done:      { ic: "✓", label: "Done" },
+  failed:    { ic: "✕", label: "Failed" },
+  cancelled: { ic: "—", label: "Cancelled" },
+};
+function badge(status) {
+  const s = STATUS[status] || { ic: "?", label: status };
+  return el("span", { class: "status st-" + status },
+    el("span", { class: "ic" + (status === "running" ? " spin" : ""), "aria-hidden": "true" }, s.ic), s.label);
+}
+
+// ─── Event descriptions (feed + timeline) ────────────────────────────────────
+function describe(e) {
+  const d = e.data || {};
+  switch (e.type) {
+    case "run_start":     return { ic: "▶", cls: "", h: "Run started", d: short(d.question) };
+    case "llm_call":      return { ic: "◆", cls: "", h: `LLM call · step ${d.iteration}`,
+                                   d: `${fmtMs(d.ms)} · ${fmtInt(d.tokens)} tokens → ` + (d.tools?.length ? "tools: " + d.tools.join(", ") : "answer") };
+    case "tool_call":     return { ic: "⚙", cls: "tool", h: `Tool · ${d.tool}`, d: short(d.args), code: true, full: d.args };
+    case "tool_result":   return { ic: d.ok ? "↩" : "!", cls: d.ok ? "tool" : "err", h: `${d.tool} ${d.ok ? "returned" : "failed"} · ${fmtMs(d.ms)}`, d: short(d.output), full: d.output };
+    case "answer":        return { ic: "✓", cls: "ok", h: `Answer · ${d.iterations} step${d.iterations === 1 ? "" : "s"}`, d: short(d.answer), full: d.answer };
+    case "run_error":     return { ic: "✕", cls: "err", h: "Run error", d: short(d.error), full: d.error };
+    case "max_iterations":return { ic: "⚠", cls: "err", h: "Hit step limit", d: `${d.iterations} steps` };
+    case "task_created":  return { ic: "+", cls: "", h: "Task assigned", d: `${d.title} · ${d.priority}` };
+    case "task_started":  return { ic: "▶", cls: "", h: "Task started", d: d.title };
+    case "task_done":     return { ic: "✓", cls: "ok", h: "Task completed", d: d.title || d.task };
+    case "task_failed":   return { ic: "✕", cls: "err", h: "Task failed", d: (d.title ? d.title + " — " : "") + short(d.error), full: d.error };
+    case "task_cancelled":return { ic: "—", cls: "", h: "Task cancelled", d: d.task };
+    case "task_retried":  return { ic: "↻", cls: "", h: "Task re-queued", d: d.task };
+    default:              return { ic: "•", cls: "", h: e.type, d: short(d) };
+  }
+}
+const FEED_FILTERS = {
+  all: () => true,
+  tools: (e) => e.type.startsWith("tool_"),
+  tasks: (e) => e.type.startsWith("task_"),
+  errors: (e) => e.type === "run_error" || e.type === "task_failed" || e.type === "max_iterations" || (e.type === "tool_result" && !e.data.ok),
+};
+
+// ─── Renderers ───────────────────────────────────────────────────────────────
+function renderOverview(o) {
+  $("model").textContent = o.model;
+  $("keyDot").className = "dot " + (o.openai_key_set ? "on" : "off");
+  $("keyText").textContent = o.openai_key_set ? "OpenAI key set" : "OpenAI key missing";
+  $("keyBanner").classList.toggle("show", !o.openai_key_set);
+
+  const t = o.tasks, m = o.metrics;
+  $("k-queued").textContent = fmtInt(t.queued);
+  $("k-running").textContent = fmtInt(t.running);
+  const busy = o.workers.filter((w) => w.task_id).length;
+  $("k-workers").textContent = `${busy} of ${o.workers.length} workers busy`;
+  $("k-done").textContent = fmtInt(t.done);
+  const finished = t.done + t.failed;
+  $("k-success").textContent = finished ? `${Math.round((t.done / finished) * 100)}% success rate` : "no finished tasks yet";
+  $("k-failed").textContent = fmtInt(t.failed);
+  $("k-errors").textContent = `${fmtInt(m.run_errors)} run error${m.run_errors === 1 ? "" : "s"}`;
+  $("k-tokens").textContent = fmtCompact(m.tokens);
+  $("k-llm").textContent = `${fmtInt(m.llm_calls)} LLM calls`;
+  $("k-lat").textContent = m.llm_calls ? fmtMs(m.avg_llm_ms) : "—";
+  const toolTotal = Object.values(m.tool_calls).reduce((a, b) => a + b, 0);
+  const toolErr = Object.values(m.tool_errors).reduce((a, b) => a + b, 0);
+  $("k-tools").textContent = fmtInt(toolTotal);
+  $("k-toolerr").textContent = `${fmtInt(toolErr)} error${toolErr === 1 ? "" : "s"}`;
+  $("k-up").textContent = fmtDur(m.uptime_s);
+  $("k-runs").textContent = `${fmtInt(m.runs)} agent runs · ${m.active_runs} active`;
+
+  renderWorkers(o.workers);
+  renderBars(m.tool_calls, m.tool_errors);
+  renderSessions(o.sessions);
+  renderTabs(t);
+}
+
+function renderWorkers(workers) {
+  const box = $("workers"); box.replaceChildren();
+  $("workersHint").textContent = `${workers.length} background worker${workers.length === 1 ? "" : "s"}`;
+  if (!workers.length) { box.append(el("div", { class: "empty" }, "No workers running.")); return; }
+  for (const w of workers) {
+    const task = w.task_id && state.tasks.find((t) => t.id === w.task_id);
+    box.append(el("div", { class: "worker" },
+      el("span", { class: "dot " + (w.task_id ? "on" : "") }),
+      el("span", { class: "name" }, w.worker),
+      el("span", { class: "what" }, w.task_id
+        ? ["working on ", el("a", { onclick: () => openTask(w.task_id) }, task ? task.title : w.task_id)]
+        : "idle — waiting for work")));
+  }
+}
+
+const TOOL_NAMES = ["calculator", "web_search", "python_executor", "data_analyst", "file_reader", "datetime_tool", "weather"];
+function renderBars(calls, errors) {
+  const names = [...new Set([...TOOL_NAMES, ...Object.keys(calls)])].sort((a, b) => (calls[b] || 0) - (calls[a] || 0));
+  const max = Math.max(1, ...Object.values(calls));
+  const box = $("bars"); box.replaceChildren();
+  for (const n of names) {
+    const v = calls[n] || 0, e = errors[n] || 0;
+    const track = el("div", { class: "bar-track", "data-tip": `${n}: ${v} call${v === 1 ? "" : "s"}${e ? `, ${e} failed` : ""}` },
+      el("div", { class: "bar-fill", style: `width:${v ? Math.max(1, (v / max) * 100) : 0}%` }));
+    box.append(el("div", { class: "bar-row" },
+      el("span", { class: "lbl", title: n }, n), track,
+      el("span", { class: "val" }, fmtInt(v), e ? el("small", {}, `${e} err`) : null)));
+  }
+}
+
+function renderSessions(sessions) {
+  const box = $("sessions"); box.replaceChildren();
+  if (!sessions.length) { box.append(el("div", { class: "empty" }, "No sessions yet — assign a task to start one.")); return; }
+  sessions.sort((a, b) => (b.busy - a.busy) || (b.tokens_used - a.tokens_used));
+  box.append(el("table", { class: "tbl" },
+    el("thead", {}, el("tr", {}, el("th", {}, "Session"), el("th", {}, "State"), el("th", { class: "num" }, "Messages"), el("th", { class: "num" }, "Tokens"))),
+    el("tbody", {}, sessions.slice(0, 50).map((s) => el("tr", {},
+      el("td", { class: "mono", title: s.session_id }, s.session_id),
+      el("td", {}, s.busy ? badge("running") : el("span", { style: "color:var(--text-3)" }, "idle")),
+      el("td", { class: "num" }, fmtInt(s.messages)),
+      el("td", { class: "num" }, fmtInt(s.tokens_used)))))));
+}
+
+function renderTabs(counts) {
+  const all = Object.values(counts).reduce((a, b) => a + b, 0);
+  const box = $("tabs"); box.replaceChildren();
+  for (const [k, label] of [["all", "All"], ["queued", "Queued"], ["running", "Running"], ["done", "Done"], ["failed", "Failed"], ["cancelled", "Cancelled"]]) {
+    const n = k === "all" ? all : counts[k];
+    if (k === "cancelled" && !n && state.taskFilter !== k) continue;
+    box.append(el("button", {
+      class: "tab", role: "tab", "aria-selected": String(state.taskFilter === k),
+      onclick: () => { state.taskFilter = k; renderTabs(counts); refreshTasks(); },
+    }, label, el("span", { class: "n" }, fmtInt(n))));
+  }
+}
+
+function renderTasks() {
+  const box = $("taskList"); box.replaceChildren();
+  if (!state.tasks.length) {
+    box.append(el("li", { class: "empty" }, state.taskFilter === "all"
+      ? "No tasks yet. Assign the agent some work above."
+      : `No ${state.taskFilter} tasks.`));
+    return;
+  }
+  for (const t of state.tasks) {
+    const right = t.status === "queued" ? ago(t.created_at)
+      : t.status === "running" ? fmtMs(t.duration_ms)
+      : t.finished_at ? ago(t.finished_at) : "";
+    box.append(el("li", { class: "task", tabindex: "0", onclick: () => openTask(t.id), onkeydown: (ev) => ev.key === "Enter" && openTask(t.id) },
+      badge(t.status),
+      el("div", { style: "min-width:0" },
+        el("div", { class: "t", title: t.title }, t.title),
+        el("div", { class: "m" },
+          el("span", { class: "prio " + t.priority }, t.priority),
+          t.duration_ms != null && t.status !== "running" ? el("span", {}, fmtMs(t.duration_ms)) : null,
+          t.tokens ? el("span", {}, `${fmtInt(t.tokens)} tokens`) : null,
+          t.error ? el("span", { style: "color:var(--critical-text)" }, short(t.error, 60)) : null)),
+      el("div", { class: "r" }, right)));
+  }
+}
+
+function renderFeed() {
+  const box = $("feed");
+  const f = FEED_FILTERS[state.feedFilter];
+  const evs = state.events.filter(f).slice(-150).reverse();
+  box.replaceChildren();
+  if (!evs.length) {
+    box.append(el("li", { class: "empty" }, state.events.length ? "Nothing matches this filter yet." : "Waiting for agent activity…"));
+    return;
+  }
+  for (const e of evs) {
+    const x = describe(e);
+    const who = e.task_id ? "task " + e.task_id : e.session_id;
+    box.append(el("li", { class: "ev" + (e._new ? " new" : "") },
+      el("span", { class: "ic " + x.cls, "aria-hidden": "true" }, x.ic),
+      el("div", { style: "min-width:0" },
+        el("div", { class: "h" }, x.h, who ? el("span", { class: "sid" }, who) : null),
+        x.d ? el("div", { class: "d", title: typeof x.full === "string" ? x.full.slice(0, 600) : x.d }, x.code ? el("code", {}, x.d) : x.d) : null),
+      el("span", { class: "time", title: new Date(e.ts * 1000).toLocaleString() }, clock(e.ts))));
+    delete e._new;
+  }
+}
+
+// ─── Task drawer ─────────────────────────────────────────────────────────────
+async function openTask(id) {
+  state.openTask = id;
+  $("drawer").classList.add("open"); $("scrim").classList.add("open");
+  $("drawer").setAttribute("aria-hidden", "false");
+  await refreshDrawer();
+}
+function closeTask() {
+  state.openTask = null;
+  $("drawer").classList.remove("open"); $("scrim").classList.remove("open");
+  $("drawer").setAttribute("aria-hidden", "true");
+}
+async function refreshDrawer() {
+  if (!state.openTask) return;
+  let t;
+  try { t = await api("/tasks/" + state.openTask); }
+  catch (e) { if (e instanceof AuthError) throw e; toast(e.message); closeTask(); return; }
+  $("dTitle").textContent = t.title;
+  $("dStatus").replaceChildren(badge(t.status));
+
+  const meta = el("div", { class: "meta" },
+    ...[["Priority", t.priority], ["Duration", fmtMs(t.duration_ms)], ["Tokens", fmtInt(t.tokens || t.trace.filter((e) => e.type === "llm_call").reduce((a, e) => a + (e.data.tokens || 0), 0))],
+       ["Attempts", t.attempts], ["Created", new Date(t.created_at * 1000).toLocaleString()], ["Session", t.session_id], ["Task ID", t.id]]
+      .map(([k, v]) => el("div", {}, el("div", { class: "k" }, k), el("div", { class: "v", title: String(v) }, String(v)))));
+
+  const body = [meta, el("div", { class: "sec" }, el("h4", {}, "Prompt"), el("div", { class: "box" }, t.prompt))];
+  if (t.result != null) body.push(el("div", { class: "sec" }, el("h4", {}, "Result"), el("div", { class: "box" }, t.result || "(empty answer)")));
+  if (t.error) body.push(el("div", { class: "sec" }, el("h4", {}, "Error"), el("div", { class: "box err" }, t.error)));
+  if (t.status === "queued") body.push(el("div", { class: "empty" }, "Waiting for a free worker…"));
+
+  const steps = t.trace.filter((e) => !["task_started", "task_created"].includes(e.type));
+  if (steps.length) {
+    const t0 = t.started_at || steps[0].ts;
+    body.push(el("div", { class: "sec" }, el("h4", {}, `Trace · ${steps.length} events`),
+      el("ol", { class: "timeline" }, steps.map((e) => {
+        const x = describe(e);
+        let detail = null;
+        if (e.type === "tool_call") detail = JSON.stringify(e.data.args, null, 2);
+        else if (e.type === "tool_result" || e.type === "run_error" || e.type === "task_failed") detail = x.full;
+        return el("li", { class: x.cls },
+          el("div", { class: "th" }, x.h, el("span", {}, "+" + fmtMs(Math.round((e.ts - t0) * 1000)))),
+          e.type === "llm_call" || e.type === "answer" || e.type === "max_iterations" ? el("div", { style: "color:var(--text-2);font-size:12.5px" }, x.d) : null,
+          detail ? el("pre", {}, detail) : null);
+      }))));
+  } else if (t.status === "running") {
+    body.push(el("div", { class: "empty" }, "Starting…"));
+  }
+  const scroll = $("dBody").scrollTop;
+  $("dBody").replaceChildren(...body);
+  $("dBody").scrollTop = scroll;
+
+  const foot = [];
+  const act = (label, path, method = "POST", cls = "btn") => el("button", { class: cls, onclick: async () => {
+    try {
+      await api(path, { method });
+      toast(`${label} ✓`);
+      if (method === "DELETE") closeTask(); else await refreshDrawer();
+      tick(true);
+    } catch (e) { toast(e.message); }
+  } }, label);
+  if (t.status === "queued") foot.push(act("Cancel task", `/tasks/${t.id}/cancel`));
+  if (["failed", "cancelled", "done"].includes(t.status)) foot.push(act(t.status === "done" ? "Run again" : "Retry", `/tasks/${t.id}/retry`, "POST", "btn primary"));
+  foot.push(el("button", { class: "btn", onclick: () => {
+    $("fPrompt").value = t.prompt; $("fTitle").value = t.title; $("fSession").value = "";
+    setPriority(t.priority); closeTask(); $("fPrompt").focus(); toast("Copied into the form — edit and assign");
+  } }, "Duplicate"));
+  foot.push(el("div", { class: "spacer" }));
+  if (t.status !== "running") foot.push(act("Delete", `/tasks/${t.id}`, "DELETE", "btn danger"));
+  $("dFoot").replaceChildren(...foot);
+}
+
+// ─── Polling loop ────────────────────────────────────────────────────────────
+async function refreshTasks() {
+  const q = state.taskFilter === "all" ? "" : "&status=" + state.taskFilter;
+  state.tasks = await api("/tasks?limit=150" + q);
+  renderTasks();
+}
+async function tick(force = false) {
+  if (state.paused && !force) return;
+  try {
+    const [o, ev] = await Promise.all([
+      api("/api/overview"),
+      api(`/api/events?after=${state.lastSeq}&limit=500`),
+    ]);
+    if (ev.last_seq < state.lastSeq) { state.events = []; } // server restarted
+    for (const e of ev.events) { if (!state.firstLoad) e._new = true; state.events.push(e); }
+    if (state.events.length > MAX_FEED) state.events.splice(0, state.events.length - MAX_FEED);
+    state.lastSeq = ev.last_seq;
+    await refreshTasks();
+    state.overview = o;
+    renderOverview(o);
+    if (ev.events.length || state.firstLoad) renderFeed();
+    if (state.openTask) await refreshDrawer();
+    state.firstLoad = false; state.failures = 0;
+    setConn(true, "Live");
+  } catch (e) {
+    if (e instanceof AuthError) { setConn(false, "Locked"); openAuth(); return; }
+    state.failures++;
+    setConn(false, "Disconnected — retrying");
+  }
+}
+function setConn(ok, text) {
+  $("connDot").className = "dot " + (ok ? (state.paused ? "" : "on") : "off");
+  $("connText").textContent = state.paused && ok ? "Paused" : text;
+}
+let timer = null;
+function schedule() {
+  clearTimeout(timer);
+  const delay = state.failures ? Math.min(15000, 2000 * 2 ** Math.min(state.failures, 3)) : 2000;
+  timer = setTimeout(async () => { await tick(); schedule(); }, delay);
+}
+
+// ─── Form ────────────────────────────────────────────────────────────────────
+function setPriority(p) {
+  state.priority = p;
+  for (const b of $("prio").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.p === p));
+}
+$("prio").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setPriority(b.dataset.p); });
+
+const EXAMPLES = [
+  ["Math", "What is the compound interest on $25,000 at 6.5% for 12 years, compounded monthly?"],
+  ["Research", "Search the web for the latest news about AI agents and summarise the top 3 stories."],
+  ["Code", "Write and run Python to find all prime numbers below 200 and report how many there are."],
+  ["Data", 'Analyse this sales data and tell me the best month: [{"month":"Jan","sales":120},{"month":"Feb","sales":95},{"month":"Mar","sales":180},{"month":"Apr","sales":150}]'],
+  ["Time", "What is the current date and time in Tokyo, London and New York?"],
+];
+for (const [label, prompt] of EXAMPLES)
+  $("examples").append(el("button", { type: "button", class: "chip", onclick: () => { $("fPrompt").value = prompt; $("fPrompt").focus(); } }, label + " example"));
+
+$("taskForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const prompt = $("fPrompt").value.trim();
+  if (!prompt) { $("fPrompt").focus(); return; }
+  $("submitBtn").disabled = true;
+  try {
+    const t = await api("/tasks", { method: "POST", body: JSON.stringify({
+      prompt, title: $("fTitle").value.trim(), priority: state.priority,
+      session_id: $("fSession").value.trim() || null,
+    }) });
+    $("fPrompt").value = ""; $("fTitle").value = ""; setPriority("normal");
+    toast(`Task assigned: ${t.title}`);
+    if (state.taskFilter !== "all" && state.taskFilter !== "queued") state.taskFilter = "all";
+    await tick(true);
+  } catch (err) {
+    if (err instanceof AuthError) openAuth(); else toast("Could not assign task: " + err.message);
+  } finally { $("submitBtn").disabled = false; }
+});
+$("fPrompt").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("taskForm").requestSubmit();
+});
+
+// ─── Feed filter, pause, theme, auth, drawer ────────────────────────────────
+$("feedTabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  state.feedFilter = b.dataset.f;
+  for (const x of $("feedTabs").children) x.setAttribute("aria-selected", String(x === b));
+  renderFeed();
+});
+$("pauseBtn").addEventListener("click", () => {
+  state.paused = !state.paused;
+  $("pauseBtn").textContent = state.paused ? "▶ Resume" : "❚❚ Pause";
+  $("feedHint").textContent = state.paused ? "paused" : "updates every 2s";
+  setConn(true, "Live");
+  if (!state.paused) tick(true);
+});
+function applyTheme(t) {
+  if (t) document.documentElement.setAttribute("data-theme", t);
+  else document.documentElement.removeAttribute("data-theme");
+}
+applyTheme(store.get("agent.theme"));
+$("themeBtn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme")
+    || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  applyTheme(next); store.set("agent.theme", next);
+});
+function openAuth() { if (!$("authModal").classList.contains("open")) { $("authModal").classList.add("open"); $("authInput").focus(); } }
+$("authBtn").addEventListener("click", openAuth);
+$("authCancel").addEventListener("click", () => $("authModal").classList.remove("open"));
+$("authForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  store.set("agent.apiKey", $("authInput").value.trim() || null);
+  $("authInput").value = "";
+  $("authModal").classList.remove("open");
+  state.failures = 0; tick(true);
+});
+$("dClose").addEventListener("click", closeTask);
+$("scrim").addEventListener("click", closeTask);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { closeTask(); $("authModal").classList.remove("open"); }
+});
+
+// Tooltip for bars
+const tip = $("tip");
+document.addEventListener("mousemove", (e) => {
+  const t = e.target.closest?.("[data-tip]");
+  if (!t) { tip.style.opacity = 0; return; }
+  tip.textContent = t.dataset.tip;
+  const x = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8);
+  tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px"; tip.style.opacity = 1;
+});
+
+// Relative times keep moving even with no new data
+setInterval(() => { if (state.tasks.length) renderTasks(); }, 10000);
+
+tick(true).then(schedule);
+</script>
+</body>
+</html>

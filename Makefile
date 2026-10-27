@@ -1,4 +1,4 @@
-.PHONY: help setup install run dev chat chat-stream check test docker-up docker-down docker-logs clean
+.PHONY: help setup install run dev dashboard chat chat-stream check test docker-up docker-down docker-logs clean
 
 PY ?= python
 
@@ -12,6 +12,9 @@ run:          ## start production server
 	uvicorn api:app --host 0.0.0.0 --port 8000
 dev:          ## start dev server with hot-reload
 	uvicorn api:app --reload --port 8000
+dashboard:    ## start server and print the dashboard URL
+	@echo "Dashboard: http://localhost:8000/dashboard"
+	uvicorn api:app --port 8000
 chat:         ## ask agent from CLI: make chat Q="..."
 	$(PY) agent.py -q "$(Q)"
 chat-stream:  ## stream answer from CLI: make chat-stream Q="..."

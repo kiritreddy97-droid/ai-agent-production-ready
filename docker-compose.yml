@@ -8,7 +8,9 @@ services:
       - "${API_PORT:-8000}:8000"
     volumes:
       - agent-logs:/app/logs
+      - agent-data:/app/data   # task queue (SQLite) survives restarts
     restart: unless-stopped
 
 volumes:
   agent-logs:
+  agent-data:

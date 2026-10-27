@@ -23,6 +23,9 @@ class Settings:
     LOG_FILE: str  = os.getenv("LOG_FILE", "agent.log")
     REDIS_URL: str   = os.getenv("REDIS_URL", "")
     SESSION_TTL: int = int(os.getenv("SESSION_TTL", "3600"))
+    TASK_WORKERS: int = int(os.getenv("TASK_WORKERS", "2"))
+    TASKS_DB: str     = os.getenv("TASKS_DB", "tasks.db")
+    EVENT_BUFFER: int = int(os.getenv("EVENT_BUFFER", "500"))
 
     def validate(self):
         if not self.OPENAI_API_KEY:

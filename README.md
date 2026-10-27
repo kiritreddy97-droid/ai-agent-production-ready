@@ -50,7 +50,10 @@ User Question
 ai-agent-production-ready/
 ├── agent.py            # Core AI agent (ReAct loop, memory, streaming)
 ├── tools.py            # All tools + JSON schemas for OpenAI
-├── api.py              # FastAPI REST server
+├── api.py              # FastAPI REST server (+ dashboard & task endpoints)
+├── monitor.py          # Live activity events + metrics
+├── tasks.py            # Background work queue (SQLite-backed)
+├── static/dashboard.html  # Agent Control Room web dashboard
 ├── config.py           # Settings from environment variables
 ├── requirements.txt    # Python dependencies
 ├── .env.example        # Configuration template (copy to .env)
@@ -125,9 +128,53 @@ make dev
 ```
 
 Visit:
+- **Dashboard (watch the agent, assign work):** http://localhost:8000/dashboard
 - **Swagger UI (interactive docs):** http://localhost:8000/docs
 - **Health check:** http://localhost:8000/health
 - **Tool list:** http://localhost:8000/tools
+
+---
+
+## Dashboard — Agent Control Room
+
+Open **http://localhost:8000/dashboard** while the server is running.
+
+| Panel | What it shows |
+|-------|---------------|
+| **KPI tiles** | queued / running / completed / failed tasks, success rate, tokens, avg LLM latency, tool calls, uptime |
+| **Assign work** | give the agent a task (prompt, optional title, priority, optional session to keep memory) — `Ctrl/⌘+Enter` submits |
+| **Tasks** | every task with status, priority, duration and tokens; filter by status; click one for detail |
+| **Task detail** | prompt, result or error, and a step-by-step **trace** (each LLM call, tool call with arguments, tool output, answer) — plus Retry / Run again / Cancel / Duplicate / Delete |
+| **Workers** | each background worker and what it is working on right now |
+| **Live activity** | stream of everything the agent does (runs, LLM calls, tool calls, answers, errors), from tasks *and* `/chat` requests; filter by Tools / Tasks / Errors; pause |
+| **Tool usage** | how often each tool has been called and how often it failed |
+| **Sessions** | conversation memory the agent is holding, with message and token counts |
+
+It refreshes every 2 seconds, works in light and dark mode and on mobile, and needs no build step.
+If `API_KEY` is set, click 🔑 and enter it (stored only in your browser).
+
+**How work runs:** tasks go into a priority queue (high → normal → low) and `TASK_WORKERS`
+background workers run them through the agent. Tasks are stored in SQLite (`TASKS_DB`), so they
+survive restarts — queued tasks resume, and tasks interrupted mid-run are marked failed so you can retry them.
+
+### Task API
+
+```bash
+# Assign work
+curl -X POST http://localhost:8000/tasks -H "Content-Type: application/json" \
+  -d '{"prompt": "Find all primes below 200 with Python", "priority": "high"}'
+
+curl http://localhost:8000/tasks?status=done        # list (queued|running|done|failed|cancelled)
+curl http://localhost:8000/tasks/<id>                # detail + full trace
+curl -X POST http://localhost:8000/tasks/<id>/retry  # re-run failed/cancelled/done
+curl -X POST http://localhost:8000/tasks/<id>/cancel # cancel while queued
+curl http://localhost:8000/api/overview              # metrics, workers, sessions
+curl "http://localhost:8000/api/events?after=0"      # activity feed (poll with ?after=<last_seq>)
+```
+
+> Live metrics and the activity feed are kept in memory per server process. Run with
+> `API_WORKERS=1` (the default) so the dashboard sees everything; tasks themselves are safe
+> with more processes (workers claim each task atomically).
 
 ---
 
@@ -350,6 +397,9 @@ Done! The agent will automatically discover and use your tool.
 | `API_KEY` | *(empty)* | Optional Bearer token auth |
 | `WEATHER_API_KEY` | *(empty)* | OpenWeatherMap key (free at openweathermap.org) |
 | `LOG_LEVEL` | `INFO` | DEBUG / INFO / WARNING / ERROR |
+| `TASK_WORKERS` | `2` | Background workers that run assigned tasks |
+| `TASKS_DB` | `tasks.db` | SQLite file storing tasks and their traces |
+| `EVENT_BUFFER` | `500` | Recent events kept for the live activity feed |
 | `REDIS_URL` | *(empty)* | Redis for persistent sessions (optional) |
 
 ---
@@ -362,6 +412,7 @@ make setup         # copy .env.example to .env
 make install       # install dependencies
 make run           # start production server
 make dev           # start dev server with hot-reload
+make dashboard     # start server and print the dashboard URL
 make chat Q="..."  # ask agent from CLI
 make check         # validate config
 make test          # run tests

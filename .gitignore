@@ -1,5 +1,7 @@
 .env
 *.log
+tasks.db
+*.db-journal
 __pycache__/
 *.pyc
 .pytest_cache/

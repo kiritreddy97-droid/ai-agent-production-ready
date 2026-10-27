@@ -9,7 +9,8 @@ RUN pip install --no-cache-dir --upgrade pip \
 FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    LOG_FILE=/app/logs/agent.log
+    LOG_FILE=/app/logs/agent.log \
+    TASKS_DB=/app/data/tasks.db
 WORKDIR /app
 
 RUN useradd --create-home --uid 1000 agent
@@ -17,7 +18,8 @@ COPY --from=builder /wheels /wheels
 RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 
 COPY --chown=agent:agent *.py ./
-RUN mkdir -p /app/logs && chown agent:agent /app/logs
+COPY --chown=agent:agent static ./static
+RUN mkdir -p /app/logs /app/data && chown agent:agent /app/logs /app/data
 USER agent
 
 EXPOSE 8000

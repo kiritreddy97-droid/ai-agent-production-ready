@@ -14,6 +14,7 @@ Features
   • Streaming token support
   • Retry with exponential back-off on transient errors
   • Structured logging to stdout + rotating file
+  • Live activity events (monitor.py) for the dashboard
   • 100% type-annotated, no external agent framework needed
 
 Quick start
@@ -29,6 +30,7 @@ import json
 import logging
 import os
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Generator, List, Optional
@@ -37,6 +39,7 @@ from openai import OpenAI, OpenAIError
 from openai.types.chat import ChatCompletionMessageToolCall
 
 from config import settings
+from monitor import monitor
 from tools import execute_tool, TOOL_SCHEMAS
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
@@ -150,22 +153,44 @@ class AIAgent:
 
     def __init__(self) -> None:
         self._sessions: dict[str, AgentSession] = {}
+        # One run at a time per session: history must not interleave when the
+        # API and background task workers share a session id.
+        self._locks: dict[str, threading.Lock] = {}
+        self._guard = threading.Lock()
         log.info("AIAgent ready | model=%s | max_iter=%d",
                  settings.MODEL, settings.MAX_ITERATIONS)
 
     # ── Session helpers ───────────────────────────────────────────────────────
     def get_session(self, sid: str) -> AgentSession:
-        if sid not in self._sessions:
-            s = AgentSession(session_id=sid)
-            s.add(Message(role="system", content=SYSTEM_PROMPT))
-            self._sessions[sid] = s
-        return self._sessions[sid]
+        with self._guard:
+            if sid not in self._sessions:
+                s = AgentSession(session_id=sid)
+                s.add(Message(role="system", content=SYSTEM_PROMPT))
+                self._sessions[sid] = s
+            return self._sessions[sid]
+
+    def _session_lock(self, sid: str) -> threading.Lock:
+        with self._guard:
+            return self._locks.setdefault(sid, threading.Lock())
 
     def clear_session(self, sid: str) -> None:
         self._sessions.pop(sid, None)
 
     def list_sessions(self) -> list[str]:
         return list(self._sessions.keys())
+
+    def session_info(self) -> list[dict]:
+        with self._guard:
+            sessions = list(self._sessions.values())
+        return [
+            {
+                "session_id": s.session_id,
+                "messages": len(s.history),
+                "tokens_used": s.tokens_used,
+                "busy": self._session_lock(s.session_id).locked(),
+            }
+            for s in sessions
+        ]
 
     # ── Public run ────────────────────────────────────────────────────────────
     def run(
@@ -174,10 +199,54 @@ class AIAgent:
         session_id: str = "default",
         stream: bool = False,
     ) -> str | Generator[str, None, None]:
+        if stream:
+            return self._locked_stream(question, session_id)
+        with self._session_lock(session_id):
+            session = self._start(question, session_id, stream=False)
+            try:
+                return self._run_sync(session)
+            except Exception as e:
+                monitor.emit("run_error", session_id, error=str(e))
+                raise
+
+    def _start(self, question: str, session_id: str, stream: bool) -> AgentSession:
         session = self.get_session(session_id)
         session.add(Message(role="user", content=question))
         session.iteration = 0
-        return self._run_stream(session) if stream else self._run_sync(session)
+        monitor.emit("run_start", session_id, question=question, stream=stream)
+        return session
+
+    def _locked_stream(self, question: str, session_id: str) -> Generator[str, None, None]:
+        with self._session_lock(session_id):
+            session = self._start(question, session_id, stream=True)
+            try:
+                yield from self._run_stream(session)
+            except Exception as e:
+                monitor.emit("run_error", session_id, error=str(e))
+                raise
+
+    def _llm(self, session: AgentSession, stream: bool = False) -> Any:
+        t0 = time.perf_counter()
+        resp = self._call(session.to_api(), stream=stream)
+        if stream:
+            return resp
+        tokens = resp.usage.total_tokens if resp.usage else 0
+        session.tokens_used += tokens
+        choice = resp.choices[0]
+        monitor.emit(
+            "llm_call", session.session_id,
+            iteration=session.iteration,
+            ms=int((time.perf_counter() - t0) * 1000),
+            tokens=tokens,
+            finish=choice.finish_reason,
+            tools=[tc.function.name for tc in (choice.message.tool_calls or [])],
+        )
+        return resp
+
+    def _finish(self, session: AgentSession, answer: str) -> None:
+        session.add(Message(role="assistant", content=answer))
+        monitor.emit("answer", session.session_id, answer=answer,
+                     iterations=session.iteration, tokens=session.tokens_used)
 
     # ── Synchronous ───────────────────────────────────────────────────────────
     def _run_sync(self, session: AgentSession) -> str:
@@ -186,12 +255,9 @@ class AIAgent:
             log.info("[iter %d] %s | %d messages in context",
                      session.iteration, settings.MODEL, len(session.history))
 
-            resp   = self._call(session.to_api(), stream=False)
+            resp   = self._llm(session)
             choice = resp.choices[0]
             msg    = choice.message
-
-            if resp.usage:
-                session.tokens_used += resp.usage.total_tokens
 
             # Tool calls
             if choice.finish_reason == "tool_calls" and msg.tool_calls:
@@ -203,7 +269,7 @@ class AIAgent:
                 for tc in msg.tool_calls:
                     session.add(Message(
                         role="tool",
-                        content=self._run_tool(tc),
+                        content=self._run_tool(tc, session),
                         name=tc.function.name,
                         tool_call_id=tc.id,
                     ))
@@ -212,12 +278,13 @@ class AIAgent:
 
             # Final answer
             answer = (msg.content or "").strip()
-            session.add(Message(role="assistant", content=answer))
+            self._finish(session, answer)
             log.info("Done | tokens=%d", session.tokens_used)
             return answer
 
         fallback = "Max reasoning steps reached. Please rephrase your question."
         session.add(Message(role="assistant", content=fallback))
+        monitor.emit("max_iterations", session.session_id, iterations=session.iteration)
         return fallback
 
     # ── Streaming ─────────────────────────────────────────────────────────────
@@ -226,7 +293,7 @@ class AIAgent:
             session.iteration += 1
 
             # Non-stream probe to detect tool calls
-            probe  = self._call(session.to_api(), stream=False)
+            probe  = self._llm(session)
             choice = probe.choices[0]
 
             if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
@@ -236,7 +303,7 @@ class AIAgent:
                     tool_calls=[tc.model_dump() for tc in choice.message.tool_calls],
                 ))
                 for tc in choice.message.tool_calls:
-                    result = self._run_tool(tc)
+                    result = self._run_tool(tc, session)
                     yield f"\n> 🔧 **Tool: {tc.function.name}**\n"
                     session.add(Message(
                         role="tool",
@@ -248,7 +315,7 @@ class AIAgent:
                 continue
 
             # Stream the final answer
-            streamed = self._call(session.to_api(), stream=True)
+            streamed = self._llm(session, stream=True)
             collected: list[str] = []
             for chunk in streamed:
                 token = chunk.choices[0].delta.content or ""
@@ -256,26 +323,37 @@ class AIAgent:
                     collected.append(token)
                     yield token
 
-            session.add(Message(role="assistant", content="".join(collected).strip()))
+            self._finish(session, "".join(collected).strip())
             return
 
+        monitor.emit("max_iterations", session.session_id, iterations=session.iteration)
         yield "\nMax reasoning steps reached."
 
     # ── Tool execution ────────────────────────────────────────────────────────
-    def _run_tool(self, tc: ChatCompletionMessageToolCall) -> str:
+    def _run_tool(self, tc: ChatCompletionMessageToolCall, session: AgentSession) -> str:
         name = tc.function.name
+        sid  = session.session_id
         try:
             args = json.loads(tc.function.arguments)
         except json.JSONDecodeError:
+            monitor.emit("tool_call", sid, tool=name, args=tc.function.arguments)
+            monitor.emit("tool_result", sid, tool=name, ok=False, ms=0,
+                         output=f"bad JSON args for '{name}'")
             return f"Error: bad JSON args for '{name}'"
         log.info("  tool → %s(%s)", name, args)
+        monitor.emit("tool_call", sid, tool=name, args=args)
+        t0 = time.perf_counter()
         try:
-            result = execute_tool(name, args)
-            log.info("  tool ← %d chars", len(str(result)))
-            return str(result)
+            result = str(execute_tool(name, args))
+            ok = True
+            log.info("  tool ← %d chars", len(result))
         except Exception as e:
             log.error("Tool '%s' error: %s", name, e)
-            return f"Tool error ({name}): {e}"
+            result = f"Tool error ({name}): {e}"
+            ok = False
+        monitor.emit("tool_result", sid, tool=name, ok=ok,
+                     ms=int((time.perf_counter() - t0) * 1000), output=result)
+        return result
 
     # ── Retry-wrapped OpenAI call ─────────────────────────────────────────────
     def _call(self, messages: list[dict], stream: bool = False, **kw) -> Any:
