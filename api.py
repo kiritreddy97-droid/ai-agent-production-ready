@@ -113,6 +113,10 @@ def require_auth(
     creds: Optional[HTTPAuthorizationCredentials] = Security(_bearer),
 ) -> None:
     if not settings.API_KEY:
+        if settings.REQUIRE_API_KEY:
+            raise HTTPException(
+                status_code=503,
+                detail="This server is public: set the API_KEY environment variable to use it.")
         return
     if creds is None or not hmac.compare_digest(creds.credentials, settings.API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
@@ -152,6 +156,7 @@ def health() -> dict:
         "model": settings.MODEL,
         "openai_key_set": bool(settings.OPENAI_API_KEY),
         "auth_enabled": bool(settings.API_KEY),
+        "auth_required": settings.REQUIRE_API_KEY,
     }
 
 

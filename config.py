@@ -5,6 +5,23 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=False)
 
+
+def _env(name: str, default: str) -> str:
+    """Like os.getenv, but a blank value (common in hosting dashboards) means default."""
+    return os.getenv(name, "").strip() or default
+
+
+def _public_url() -> str:
+    """Public base URL when running on a cloud host (Render / Railway) or set explicitly."""
+    if os.getenv("PUBLIC_URL"):
+        return os.environ["PUBLIC_URL"].rstrip("/")
+    if os.getenv("RENDER_EXTERNAL_URL"):
+        return os.environ["RENDER_EXTERNAL_URL"].rstrip("/")
+    if os.getenv("RAILWAY_PUBLIC_DOMAIN"):
+        return "https://" + os.environ["RAILWAY_PUBLIC_DOMAIN"]
+    return ""
+
+
 class Settings:
     OPENAI_API_KEY: str  = os.getenv("OPENAI_API_KEY", "")
     MODEL: str           = os.getenv("OPENAI_MODEL", "gpt-4o")
@@ -17,6 +34,9 @@ class Settings:
     API_WORKERS: int = int(os.getenv("API_WORKERS", "1"))
     API_RELOAD: bool = os.getenv("API_RELOAD", "false").lower() == "true"
     API_KEY: str     = os.getenv("API_KEY", "")
+    PUBLIC_URL: str  = _public_url()
+    # On a public server every endpoint must be protected by API_KEY.
+    REQUIRE_API_KEY: bool = bool(PUBLIC_URL) or os.getenv("REQUIRE_API_KEY", "").lower() == "true"
     WEATHER_API_KEY: str = os.getenv("WEATHER_API_KEY", "")
     SERPER_API_KEY: str  = os.getenv("SERPER_API_KEY", "")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -35,12 +55,13 @@ class Settings:
     ZENODO_AUTHOR: str   = os.getenv("ZENODO_AUTHOR", "")
     LINKEDIN_CLIENT_ID: str     = os.getenv("LINKEDIN_CLIENT_ID", "")
     LINKEDIN_CLIENT_SECRET: str = os.getenv("LINKEDIN_CLIENT_SECRET", "")
-    LINKEDIN_REDIRECT_URI: str  = os.getenv("LINKEDIN_REDIRECT_URI",
-                                            "http://localhost:8000/linkedin/callback")
+    LINKEDIN_REDIRECT_URI: str  = _env("LINKEDIN_REDIRECT_URI",
+                                       (_public_url() or "http://localhost:8000")
+                                       + "/linkedin/callback")
     LINKEDIN_API_VERSION: str   = os.getenv("LINKEDIN_API_VERSION", "")
-    LINKEDIN_POST_DAYS: str     = os.getenv("LINKEDIN_POST_DAYS", "mon,thu")
-    LINKEDIN_POST_TIME: str     = os.getenv("LINKEDIN_POST_TIME", "09:00")
-    LINKEDIN_TIMEZONE: str      = os.getenv("LINKEDIN_TIMEZONE", "UTC")
+    LINKEDIN_POST_DAYS: str     = _env("LINKEDIN_POST_DAYS", "mon,thu")
+    LINKEDIN_POST_TIME: str     = _env("LINKEDIN_POST_TIME", "09:00")
+    LINKEDIN_TIMEZONE: str      = _env("LINKEDIN_TIMEZONE", "UTC")
     LINKEDIN_AUTO_PUBLISH: bool = os.getenv("LINKEDIN_AUTO_PUBLISH", "false").lower() == "true"
     LINKEDIN_DRAFT_AHEAD_HOURS: int = int(os.getenv("LINKEDIN_DRAFT_AHEAD_HOURS", "48"))
 

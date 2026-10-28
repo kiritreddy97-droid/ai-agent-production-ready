@@ -62,6 +62,9 @@ ai-agent-production-ready/
 ├── .env.example        # Configuration template (copy to .env)
 ├── Dockerfile          # Production Docker image (multi-stage)
 ├── docker-compose.yml  # One-command Docker deployment
+├── docker-entrypoint.sh  # Fixes volume permissions, drops to non-root user
+├── render.yaml         # Render Blueprint (always-on + disk)
+├── railway.json        # Railway config
 ├── Makefile            # Developer shortcuts
 ├── tests/              # Offline test suite (fake OpenAI client, no API key needed)
 └── README.md           # This file
@@ -343,54 +346,55 @@ docker logs -f ai-agent
 
 ---
 
-## Deployment — Cloud
+## Deployment — Cloud (24/7, for the LinkedIn autopilot)
 
-### Deploy to Render (Free Tier Available)
+The scheduler and task workers run **inside** the server, so the host must be **always on**
+(no sleeping) and keep a **persistent disk** (tasks, drafts, LinkedIn connection). Run exactly
+**one instance**. Serverless hosts (Vercel, Netlify, Cloud Run with scale-to-zero) don't fit.
 
-1. Fork or push this repo to your GitHub
-2. Go to https://render.com and click "New Web Service"
-3. Connect your GitHub repo
-4. Set these in Render settings:
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `uvicorn api:app --host 0.0.0.0 --port $PORT`
-5. Add Environment Variables:
-   - `OPENAI_API_KEY` = your key
-   - `OPENAI_MODEL` = `gpt-4o`
-6. Click "Create Web Service"
-7. Your agent is live at `https://your-service.onrender.com`
+On any public URL the server **refuses all requests until `API_KEY` is set**, so nobody else can
+use your agent or post to your LinkedIn. Enter the key via 🔑 in the dashboard.
 
-### Deploy to Railway
+### Option A: Render (recommended — one Blueprint, ~$7/month)
+
+1. Merge this code into `main` on GitHub (Render reads `render.yaml` from the repo).
+2. Go to https://dashboard.render.com → **New → Blueprint** → connect GitHub → pick
+   `ai-agent-production-ready`.
+3. Render shows the `ai-agent` service from `render.yaml` (Starter plan + 1 GB disk) and asks for:
+   - `OPENAI_API_KEY` — your OpenAI key
+   - `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET` — from your LinkedIn app (can be added later)
+   - `ZENODO_ORCID` — your ORCID iD (optional; `ZENODO_AUTHOR` is preset to your name)
+   - `LINKEDIN_TIMEZONE` — e.g. `America/New_York` (blank = UTC)
+4. Click **Apply**. When it's live you get `https://<name>.onrender.com`.
+5. **Dashboard login:** service → **Environment** → copy the generated `API_KEY`.
+   Open `https://<name>.onrender.com/dashboard`, click 🔑, paste it.
+6. **LinkedIn app:** add `https://<name>.onrender.com/linkedin/callback` as an
+   *Authorized redirect URL* (Auth tab). The server uses that URL automatically.
+7. Dashboard → **LinkedIn → Connect LinkedIn**. Done — it now drafts and posts on schedule
+   even when your computer is off.
+
+Every push to `main` redeploys automatically; your data stays on the disk.
+
+### Option B: Railway (~$5/month)
+
+1. https://railway.com → **New Project → Deploy from GitHub repo** → pick this repo
+   (`railway.json` makes it use the Dockerfile, single replica, `/health` check).
+2. Service → **Settings → Volumes → Add volume** mounted at `/app/data`.
+3. Service → **Variables**: `API_KEY` (any long random string), `OPENAI_API_KEY`,
+   `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_TIMEZONE`,
+   `GITHUB_USERNAME=kiritreddy97-droid`, `ZENODO_AUTHOR` / `ZENODO_ORCID`,
+   `TASKS_DB=/app/data/tasks.db`.
+4. **Settings → Networking → Generate Domain**, then add
+   `https://<domain>/linkedin/callback` to your LinkedIn app's redirect URLs.
+
+### Option C: Any VPS / container host
 
 ```bash
-# Install Railway CLI
-npm install -g @railway/cli
-
-# Login and deploy
-railway login
-railway init
-railway up
-
-# Set env variables
-railway variables set OPENAI_API_KEY=sk-your-key
-railway variables set OPENAI_MODEL=gpt-4o
+docker compose up -d --build     # uses .env; data in the agent-data volume
 ```
-
-### Deploy to AWS / GCP / Azure
-
-Use the Docker image — it runs on any container service:
-- **AWS:** ECS Fargate, App Runner, or Elastic Beanstalk
-- **GCP:** Cloud Run (`gcloud run deploy`)
-- **Azure:** Container Instances or App Service
-
-```bash
-# Example: Google Cloud Run
-gcloud run deploy ai-agent \
-  --image gcr.io/your-project/ai-agent \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars OPENAI_API_KEY=sk-your-key
-```
+Put it behind HTTPS (e.g. Caddy), set `PUBLIC_URL=https://your.domain` and `API_KEY`.
+Other platforms (AWS ECS/App Runner, Azure, Fly.io) work with the same Dockerfile as long as
+you keep one always-on instance with a mounted volume at `/app/data`.
 
 ---
 
@@ -450,7 +454,8 @@ Done! The agent will automatically discover and use your tool.
 | `MAX_RETRIES` | `3` | Retries on API errors |
 | `API_HOST` | `0.0.0.0` | Server host |
 | `API_PORT` | `8000` | Server port |
-| `API_KEY` | *(empty)* | Optional Bearer token auth |
+| `API_KEY` | *(empty)* | Dashboard/API login (Bearer token). **Required** on public servers |
+| `PUBLIC_URL` | *(auto on Render/Railway)* | Public base URL; sets the LinkedIn redirect URL and enforces `API_KEY` |
 | `WEATHER_API_KEY` | *(empty)* | OpenWeatherMap key (free at openweathermap.org) |
 | `LOG_LEVEL` | `INFO` | DEBUG / INFO / WARNING / ERROR |
 | `TASK_WORKERS` | `2` | Background workers that run assigned tasks |

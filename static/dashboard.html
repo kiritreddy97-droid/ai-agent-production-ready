@@ -861,6 +861,10 @@ async function tick(force = false) {
     setConn(true, "Live");
   } catch (e) {
     if (e instanceof AuthError) { setConn(false, "Locked"); openAuth(); return; }
+    if (/set the API_KEY/.test(e.message)) {
+      setConn(false, "Server needs API_KEY");
+      if (!tick._warned) { tick._warned = true; toast("This server is public — set API_KEY in its environment settings, then redeploy."); }
+    }
     state.failures++;
     setConn(false, "Disconnected — retrying");
   }

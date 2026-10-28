@@ -163,3 +163,32 @@ def test_linkedin_endpoints_require_auth(client, monkeypatch):
         assert client.get(path).status_code == 401
     assert client.post("/linkedin/connect").status_code == 401
     assert client.get("/linkedin/callback?state=x&code=y").status_code == 400  # reachable, state-checked
+
+
+# ─── Cloud deployment ─────────────────────────────────────────────────────────
+
+def test_public_server_refuses_without_api_key(client, monkeypatch):
+    monkeypatch.setattr(api.settings, "REQUIRE_API_KEY", True)
+    monkeypatch.setattr(api.settings, "API_KEY", "")
+    assert client.get("/health").status_code == 200
+    assert client.get("/dashboard").status_code == 200
+    r = client.get("/linkedin/status")
+    assert r.status_code == 503 and "API_KEY" in r.json()["detail"]
+    assert client.post("/tasks", json={"prompt": "x"}).status_code == 503
+    monkeypatch.setattr(api.settings, "API_KEY", "k")
+    assert client.get("/tasks", headers={"Authorization": "Bearer k"}).status_code == 200
+
+
+def test_public_url_detection(monkeypatch):
+    import config
+    for k in ("PUBLIC_URL", "RENDER_EXTERNAL_URL", "RAILWAY_PUBLIC_DOMAIN"):
+        monkeypatch.delenv(k, raising=False)
+    assert config._public_url() == ""
+    monkeypatch.setenv("RAILWAY_PUBLIC_DOMAIN", "agent.up.railway.app")
+    assert config._public_url() == "https://agent.up.railway.app"
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://ai-agent.onrender.com/")
+    assert config._public_url() == "https://ai-agent.onrender.com"
+    monkeypatch.setenv("PUBLIC_URL", "https://agent.example.com")
+    assert config._public_url() == "https://agent.example.com"
+    monkeypatch.setenv("LINKEDIN_TIMEZONE", "  ")
+    assert config._env("LINKEDIN_TIMEZONE", "UTC") == "UTC"
