@@ -53,6 +53,9 @@ ai-agent-production-ready/
 ├── api.py              # FastAPI REST server (+ dashboard & task endpoints)
 ├── monitor.py          # Live activity events + metrics
 ├── tasks.py            # Background work queue (SQLite-backed)
+├── campaign.py         # LinkedIn autopilot: plans, writes, schedules & publishes posts
+├── sources.py          # Reads your GitHub repos + Zenodo papers
+├── linkedin_client.py  # LinkedIn OAuth + Posts API
 ├── static/dashboard.html  # Agent Control Room web dashboard
 ├── config.py           # Settings from environment variables
 ├── requirements.txt    # Python dependencies
@@ -175,6 +178,59 @@ curl "http://localhost:8000/api/events?after=0"      # activity feed (poll with 
 > Live metrics and the activity feed are kept in memory per server process. Run with
 > `API_WORKERS=1` (the default) so the dashboard sees everything; tasks themselves are safe
 > with more processes (workers claim each task atomically).
+
+---
+
+## LinkedIn Autopilot — Post Your Work Every Monday & Thursday
+
+The agent reads your **GitHub repos** and **Zenodo papers**, writes a LinkedIn post about one of
+them, and publishes it on your schedule (default **Mon & Thu, 09:00**). Open the **LinkedIn** tab
+in the dashboard to manage it.
+
+**What gets posted** — new work first (alternating code and papers) → "what's new" posts when a
+repo gets new commits → deep-dives on older work → a roundup every 6th post. Each post is written
+only from the real README / commits / abstract (the prompt forbids invented numbers or claims),
+with a hook, short paragraphs, a question to drive comments, and 3–5 hashtags. The repo/paper
+link is attached as a preview card.
+
+**Review mode (default)** — each post is drafted 48 h before its slot; you read, edit, then
+**Approve** it and it publishes on time. Prefer hands-off? Flip **Mode → Autopilot** in the
+dashboard (or `LINKEDIN_AUTO_PUBLISH=true`). You can also **Rewrite**, **Skip** (a different topic
+is drafted for that slot), **Publish now**, or click **Draft post** on any repo/paper.
+
+### Setup (≈10 minutes, once)
+
+1. **Tell it where your work is** — in `.env`:
+   ```
+   GITHUB_USERNAME=kiritreddy97-droid
+   ZENODO_ORCID=0000-0000-0000-0000      # best; or ZENODO_AUTHOR=Your Name
+   LINKEDIN_TIMEZONE=America/New_York    # your time zone
+   ```
+2. **Create a LinkedIn app** at https://www.linkedin.com/developers/apps → *Create app*
+   (LinkedIn asks you to link a Company Page — any page you admin works; you can create one).
+3. In the app's **Products** tab, add **Share on LinkedIn** and
+   **Sign In with LinkedIn using OpenID Connect** (both are instant).
+4. In the **Auth** tab, add the redirect URL `http://localhost:8000/linkedin/callback`
+   (or your server's URL + `/linkedin/callback`), and copy the Client ID / Secret into `.env`:
+   ```
+   LINKEDIN_CLIENT_ID=...
+   LINKEDIN_CLIENT_SECRET=...
+   ```
+5. Restart the server, open **Dashboard → LinkedIn → Connect LinkedIn**, approve.
+   Done — the first draft appears up to 48 h before the next Monday/Thursday slot
+   (or click **Write next post now**).
+
+### Things to know
+
+- **The server must be running at posting time.** If your laptop is asleep at 09:00 Monday,
+  nothing posts (a post more than 24 h late is never auto-published; you can publish it manually).
+  For hands-off posting, deploy to an always-on host (a small VPS, Railway, or a paid Render
+  instance — free tiers that sleep will miss slots) and set `LINKEDIN_REDIRECT_URI` to its URL.
+- **LinkedIn connections last ~60 days.** The dashboard warns you a week before; click Reconnect.
+- **Posts go out under your name.** Review mode is the default for that reason — the model is
+  instructed to stick to facts from your repos and papers, but read before approving.
+- LinkedIn's API version is chosen automatically; if LinkedIn ever rejects it, set
+  `LINKEDIN_API_VERSION=YYYYMM` to a current version.
 
 ---
 
@@ -400,6 +456,17 @@ Done! The agent will automatically discover and use your tool.
 | `TASK_WORKERS` | `2` | Background workers that run assigned tasks |
 | `TASKS_DB` | `tasks.db` | SQLite file storing tasks and their traces |
 | `EVENT_BUFFER` | `500` | Recent events kept for the live activity feed |
+| `GITHUB_USERNAME` | *(empty)* | GitHub account whose public repos are posted about |
+| `GITHUB_TOKEN` | *(empty)* | Optional, raises GitHub API rate limit |
+| `GITHUB_EXCLUDE` | *(empty)* | Comma-separated repo names never to post about |
+| `ZENODO_ORCID` / `ZENODO_AUTHOR` | *(empty)* | Finds your Zenodo publications |
+| `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` | *(empty)* | Your LinkedIn developer app |
+| `LINKEDIN_REDIRECT_URI` | `http://localhost:8000/linkedin/callback` | Must match the app's Auth settings |
+| `LINKEDIN_POST_DAYS` | `mon,thu` | Posting days |
+| `LINKEDIN_POST_TIME` | `09:00` | Posting time (24 h) |
+| `LINKEDIN_TIMEZONE` | `UTC` | IANA zone, e.g. `America/New_York` |
+| `LINKEDIN_AUTO_PUBLISH` | `false` | `true` = publish without review |
+| `LINKEDIN_DRAFT_AHEAD_HOURS` | `48` | How early each post is drafted |
 | `REDIS_URL` | *(empty)* | Redis for persistent sessions (optional) |
 
 ---

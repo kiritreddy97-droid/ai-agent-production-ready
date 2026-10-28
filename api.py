@@ -25,6 +25,20 @@ Dashboard & work queue
   POST   /tasks/{id}/retry     re-queue a finished task
   DELETE /tasks/{id}           delete a task
 
+LinkedIn autopilot (campaign.py)
+--------------------------------
+  GET    /linkedin/status          connection, schedule, next slots, setup issues
+  POST   /linkedin/settings        {"enabled": bool, "auto_publish": bool}
+  POST   /linkedin/connect         returns the LinkedIn sign-in URL
+  GET    /linkedin/callback        OAuth redirect target (no auth; state-checked)
+  POST   /linkedin/disconnect
+  GET    /linkedin/library         your GitHub repos + Zenodo papers (?refresh=true)
+  GET    /linkedin/posts           drafts, scheduled and published posts
+  POST   /linkedin/posts           write a draft now ({"item_key": optional})
+  PATCH  /linkedin/posts/{id}      edit text
+  POST   /linkedin/posts/{id}/approve | unapprove | publish | regenerate | skip
+  DELETE /linkedin/posts/{id}
+
 Auth
 ----
   If API_KEY is set, every endpoint except /health and the /dashboard page
@@ -38,6 +52,7 @@ Run
 from __future__ import annotations
 
 import hmac
+import html
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -46,11 +61,12 @@ from typing import Literal, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from agent import AIAgent
+from campaign import Campaign, CampaignError
 from config import settings
 from monitor import monitor
 from tasks import STATUSES, TaskError, TaskManager
@@ -62,12 +78,15 @@ DASHBOARD_HTML = Path(__file__).parent / "static" / "dashboard.html"
 
 agent = AIAgent()
 task_manager = TaskManager(agent, monitor, settings.TASKS_DB, settings.TASK_WORKERS)
+campaign = Campaign(settings.TASKS_DB, monitor)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     task_manager.start()
+    campaign.start()
     yield
+    campaign.stop()
     task_manager.stop()
 
 
@@ -261,6 +280,114 @@ def _task_op(fn, tid: str):
     except TaskError as e:
         code = 404 if "not found" in str(e) else 409
         raise HTTPException(status_code=code, detail=str(e)) from e
+
+
+# ─── LinkedIn autopilot ───────────────────────────────────────────────────────
+
+class LinkedInSettings(BaseModel):
+    enabled: Optional[bool] = None
+    auto_publish: Optional[bool] = None
+
+
+class DraftRequest(BaseModel):
+    item_key: Optional[str] = Field(None, max_length=300)
+
+
+class PostEdit(BaseModel):
+    text: str = Field(..., min_length=1, max_length=3000)
+
+
+def _li(fn, *args):
+    try:
+        return fn(*args)
+    except CampaignError as e:
+        code = 404 if "not found" in str(e) else 409
+        raise HTTPException(status_code=code, detail=str(e)) from e
+    except Exception as e:  # network / OpenAI / LinkedIn errors
+        log.exception("LinkedIn operation failed")
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@app.get("/linkedin/status", dependencies=[Depends(require_auth)])
+def linkedin_status() -> dict:
+    return campaign.status()
+
+
+@app.post("/linkedin/settings", dependencies=[Depends(require_auth)])
+def linkedin_settings(req: LinkedInSettings) -> dict:
+    return campaign.update_settings(req.enabled, req.auto_publish)
+
+
+@app.post("/linkedin/connect", dependencies=[Depends(require_auth)])
+def linkedin_connect() -> dict:
+    return {"auth_url": _li(campaign.connect_url)}
+
+
+@app.get("/linkedin/callback", include_in_schema=False)
+def linkedin_callback(code: str = "", state: str = "", error: str = "",
+                      error_description: str = "") -> HTMLResponse:
+    if error:
+        return _callback_page(False, error_description or error)
+    try:
+        campaign.finish_connect(code, state)
+    except Exception as e:
+        log.warning("LinkedIn connect failed: %s", e)
+        return _callback_page(False, str(e))
+    return _callback_page(True, "")
+
+
+def _callback_page(ok: bool, message: str) -> HTMLResponse:
+    title = "LinkedIn connected" if ok else "LinkedIn connection failed"
+    body = ("Your agent can now post to LinkedIn. Returning to the dashboard…" if ok
+            else html.escape(message))
+    refresh = '<meta http-equiv="refresh" content="2;url=/dashboard#linkedin">' if ok else ""
+    return HTMLResponse(
+        f"<!doctype html><meta charset=utf-8>{refresh}<title>{title}</title>"
+        f"<body style='font:15px system-ui;max-width:520px;margin:15vh auto;padding:0 16px'>"
+        f"<h2>{title}</h2><p>{body}</p><p><a href='/dashboard#linkedin'>Back to dashboard</a></p>",
+        status_code=200 if ok else 400)
+
+
+@app.post("/linkedin/disconnect", dependencies=[Depends(require_auth)])
+def linkedin_disconnect() -> dict:
+    campaign.disconnect()
+    return campaign.status()
+
+
+@app.get("/linkedin/library", dependencies=[Depends(require_auth)])
+def linkedin_library(refresh: bool = False) -> dict:
+    items = _li(campaign.library, refresh)
+    return {"items": items, "errors": campaign.source_errors}
+
+
+@app.get("/linkedin/posts", dependencies=[Depends(require_auth)])
+def linkedin_posts(limit: int = Query(60, ge=1, le=500)) -> list[dict]:
+    return campaign.list_posts(limit)
+
+
+@app.post("/linkedin/posts", status_code=201, dependencies=[Depends(require_auth)])
+def linkedin_draft(req: DraftRequest) -> dict:
+    return _li(campaign.create_draft, req.item_key)
+
+
+@app.patch("/linkedin/posts/{pid}", dependencies=[Depends(require_auth)])
+def linkedin_edit(pid: str, req: PostEdit) -> dict:
+    return _li(campaign.update_text, pid, req.text)
+
+
+@app.post("/linkedin/posts/{pid}/{action}", dependencies=[Depends(require_auth)])
+def linkedin_action(pid: str, action: Literal["approve", "unapprove", "publish",
+                                              "regenerate", "skip"]) -> dict:
+    fn = {"approve": campaign.approve, "unapprove": campaign.unapprove,
+          "publish": campaign.publish_now, "regenerate": campaign.regenerate,
+          "skip": campaign.skip}[action]
+    return _li(fn, pid)
+
+
+@app.delete("/linkedin/posts/{pid}", dependencies=[Depends(require_auth)])
+def linkedin_delete(pid: str) -> dict:
+    _li(campaign.delete, pid)
+    return {"deleted": pid}
 
 
 def _require_openai_key() -> None:

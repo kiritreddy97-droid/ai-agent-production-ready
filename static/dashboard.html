@@ -247,6 +247,55 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%) translateY(20px); opacity: 0; z-index: 70;
   background: var(--text); color: var(--surface); padding: 9px 14px; border-radius: 9px; font-size: 13px; transition: all .2s; max-width: calc(100vw - 32px); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
+/* ── Views ── */
+.views { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: 9px; padding: 3px; }
+.views a { padding: 5px 12px; border-radius: 7px; font-size: 13px; color: var(--text-2); text-decoration: none; font-weight: 500; }
+.views a[aria-current=page] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+[hidden] { display: none !important; }
+
+/* ── LinkedIn ── */
+.li-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+@media (max-width: 980px) { .li-top { grid-template-columns: minmax(0, 1fr); } }
+.issues { margin: 16px 0 0; padding: 12px 14px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--warning) 60%, var(--border));
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface)); }
+.issues h3 { margin: 0 0 6px; font-size: 14px; }
+.issues ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 14px; align-items: center; font-size: 13px; }
+.kv .k { color: var(--text-3); }
+.switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.switch input { appearance: none; width: 34px; height: 20px; border-radius: 999px; background: var(--border); position: relative; cursor: pointer; transition: background .15s; margin: 0; flex: none; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch input:checked { background: var(--accent); }
+.switch input:checked::after { transform: translateX(14px); }
+.slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.slot { display: grid; grid-template-columns: 100px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); }
+.slot .when { font-weight: 650; font-size: 13px; line-height: 1.2; }
+.slot .when small { display: block; font-weight: 400; color: var(--text-3); font-size: 11.5px; }
+.slot .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-2); }
+.posts { display: grid; gap: 12px; padding: 14px; }
+.post { border: 1px solid var(--border); border-radius: 11px; background: var(--bg); overflow: hidden; }
+.post-h { display: flex; align-items: center; gap: 8px; padding: 10px 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border); background: var(--surface); }
+.post-h .when { font-weight: 650; font-size: 13px; }
+.post-h .src { font-size: 12.5px; color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 160px; }
+.post-h .src a { color: var(--accent); text-decoration: none; }
+.style-chip { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
+.post textarea { border: 0; border-radius: 0; background: transparent; min-height: 210px; font-size: 14px; line-height: 1.5; padding: 12px; box-shadow: none !important; }
+.post textarea:focus { background: var(--surface); }
+.post .ro { padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.5; max-height: 260px; overflow: auto; }
+.post-f { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--surface); }
+.post-f .count { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.post-f .count.over { color: var(--critical-text); font-weight: 600; }
+.post .err { margin: 0 12px 12px; }
+.lib { list-style: none; margin: 0; padding: 0; max-height: 720px; overflow: auto; }
+.lib li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.lib li:last-child { border-bottom: 0; }
+.lib .kind { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--surface-2); color: var(--text-2); }
+.lib .t { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib .t a { color: inherit; text-decoration: none; }
+.lib .t a:hover { color: var(--accent); }
+.lib .m { font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.busy { opacity: .6; pointer-events: none; }
+
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 </style>
 </head>
@@ -254,6 +303,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
 <header>
   <div class="hdr">
     <div class="brand">Agent Control Room<small id="model">—</small></div>
+    <nav class="views" aria-label="Views">
+      <a href="#agent" id="nav-agent" aria-current="page">Agent</a>
+      <a href="#linkedin" id="nav-linkedin">LinkedIn</a>
+    </nav>
     <span class="pill" id="conn"><span class="dot" id="connDot"></span><span id="connText">Connecting…</span></span>
     <span class="pill" id="keyPill" title="OpenAI API key"><span class="dot" id="keyDot"></span><span id="keyText">OpenAI key</span></span>
     <div class="spacer"></div>
@@ -263,7 +316,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
   </div>
 </header>
 
-<div class="wrap">
+<div class="wrap" id="view-agent">
   <div class="banner" id="keyBanner">
     <strong>OpenAI key not configured.</strong> Tasks will fail until you add
     <code>OPENAI_API_KEY</code> to <code>.env</code> and restart the server.
@@ -359,6 +412,67 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
         <div id="sessions"></div>
       </section>
     </div>
+  </div>
+</div>
+
+<div class="wrap" id="view-linkedin" hidden>
+  <div class="issues" id="liIssues" hidden></div>
+
+  <section class="kpis" aria-label="LinkedIn metrics">
+    <div class="kpi"><div class="label">Next post</div><div class="value" id="li-next">—</div><div class="sub" id="li-next-sub">—</div></div>
+    <div class="kpi"><div class="label">Needs your review</div><div class="value" id="li-review">0</div><div class="sub">drafts to approve</div></div>
+    <div class="kpi"><div class="label">Scheduled</div><div class="value" id="li-approved">0</div><div class="sub">approved, waiting for their slot</div></div>
+    <div class="kpi"><div class="label">Published</div><div class="value" id="li-published">0</div><div class="sub" id="li-failed">0 failed</div></div>
+    <div class="kpi"><div class="label">Your work</div><div class="value" id="li-lib">—</div><div class="sub" id="li-lib-sub">repos &amp; papers found</div></div>
+  </section>
+
+  <div class="li-top">
+    <section class="card">
+      <div class="card-h"><h2>Autopilot</h2><span class="hint" id="liSchedHint"></span></div>
+      <div class="card-b">
+        <div class="kv">
+          <span class="k">LinkedIn</span>
+          <span id="liConn">—</span>
+          <span class="k">Posting</span>
+          <label class="switch"><input type="checkbox" id="liEnabled"><span id="liEnabledText">On</span></label>
+          <span class="k">Mode</span>
+          <label class="switch"><input type="checkbox" id="liAuto"><span id="liAutoText">—</span></label>
+          <span class="k">Schedule</span>
+          <span id="liSched">—</span>
+          <span class="k">Sources</span>
+          <span id="liSources">—</span>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-h"><h2>Coming up</h2><span class="hint">times shown in your browser's time zone</span>
+        <div class="spacer"></div>
+        <button class="btn" id="liDraftBtn" title="Write a draft for the next open slot now">✎ Write next post now</button>
+      </div>
+      <div class="card-b"><ul class="slots" id="liSlots"></ul></div>
+    </section>
+  </div>
+
+  <div class="grid" style="margin-top:16px">
+    <section class="card">
+      <div class="card-h">
+        <h2>Posts</h2>
+        <div class="spacer"></div>
+        <div class="tabs" role="tablist" id="liTabs">
+          <button class="tab" role="tab" data-f="upcoming" aria-selected="true">Upcoming</button>
+          <button class="tab" role="tab" data-f="published" aria-selected="false">Published</button>
+          <button class="tab" role="tab" data-f="skipped" aria-selected="false">Skipped</button>
+        </div>
+      </div>
+      <div class="posts" id="liPosts"></div>
+    </section>
+    <section class="card">
+      <div class="card-h"><h2>Your work</h2><span class="hint">GitHub repos &amp; Zenodo papers</span>
+        <div class="spacer"></div>
+        <button class="btn" id="liRefresh">↻ Refresh</button>
+      </div>
+      <ul class="lib" id="liLib"></ul>
+    </section>
   </div>
 </div>
 
@@ -498,6 +612,12 @@ function describe(e) {
     case "task_failed":   return { ic: "✕", cls: "err", h: "Task failed", d: (d.title ? d.title + " — " : "") + short(d.error), full: d.error };
     case "task_cancelled":return { ic: "—", cls: "", h: "Task cancelled", d: d.task };
     case "task_retried":  return { ic: "↻", cls: "", h: "Task re-queued", d: d.task };
+    case "li_draft_created": return { ic: "in", cls: "tool", h: `LinkedIn draft · ${d.style}`, d: `${d.title} · for ${new Date(d.slot * 1000).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" })}` };
+    case "li_approved":   return { ic: "in", cls: "", h: "LinkedIn post approved", d: d.title };
+    case "li_published":  return { ic: "in", cls: "ok", h: "Posted to LinkedIn", d: d.title };
+    case "li_publish_failed": return { ic: "in", cls: "err", h: "LinkedIn post failed", d: short(d.error), full: d.error };
+    case "li_draft_failed": return { ic: "in", cls: "err", h: "Couldn't write LinkedIn draft", d: short(d.error), full: d.error };
+    case "li_connected":  return { ic: "in", cls: "ok", h: "LinkedIn connected", d: d.name };
     default:              return { ic: "•", cls: "", h: e.type, d: short(d) };
   }
 }
@@ -505,7 +625,7 @@ const FEED_FILTERS = {
   all: () => true,
   tools: (e) => e.type.startsWith("tool_"),
   tasks: (e) => e.type.startsWith("task_"),
-  errors: (e) => e.type === "run_error" || e.type === "task_failed" || e.type === "max_iterations" || (e.type === "tool_result" && !e.data.ok),
+  errors: (e) => ["run_error", "task_failed", "max_iterations", "li_publish_failed", "li_draft_failed"].includes(e.type) || (e.type === "tool_result" && !e.data.ok),
 };
 
 // ─── Renderers ───────────────────────────────────────────────────────────────
@@ -848,6 +968,249 @@ document.addEventListener("mousemove", (e) => {
 
 // Relative times keep moving even with no new data
 setInterval(() => { if (state.tasks.length) renderTasks(); }, 10000);
+
+// ─── LinkedIn view ───────────────────────────────────────────────────────────
+const li = { status: null, posts: [], lib: [], libErrors: [], filter: "upcoming", dirty: {}, loaded: false };
+const LI_STATUS = {
+  draft:      { cls: "st-queued",    ic: "✎", label: "Needs review" },
+  approved:   { cls: "st-running",   ic: "◷", label: "Scheduled" },
+  publishing: { cls: "st-running",   ic: "◌", label: "Publishing", spin: true },
+  published:  { cls: "st-done",      ic: "✓", label: "Published" },
+  failed:     { cls: "st-failed",    ic: "✕", label: "Failed" },
+  skipped:    { cls: "st-cancelled", ic: "—", label: "Skipped" },
+};
+const STYLE_LABEL = { spotlight: "Project spotlight", paper: "Paper", update: "What's new", deep_dive: "Deep dive", roundup: "Roundup" };
+function liBadge(st) {
+  const s = LI_STATUS[st] || { cls: "st-queued", ic: "?", label: st };
+  return el("span", { class: "status " + s.cls }, el("span", { class: "ic" + (s.spin ? " spin" : ""), "aria-hidden": "true" }, s.ic), s.label);
+}
+const fmtSlot = (ts) => new Date(ts * 1000).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+function untilText(ts) {
+  const s = ts - Date.now() / 1000;
+  if (s <= 0) return "due now";
+  if (s < 3600) return `in ${Math.ceil(s / 60)} min`;
+  if (s < 86400) return `in ${Math.round(s / 3600)} h`;
+  return `in ${Math.round(s / 86400)} day${Math.round(s / 86400) === 1 ? "" : "s"}`;
+}
+
+async function liAction(btn, fn, okMsg) {
+  const card = btn?.closest(".post");
+  card?.classList.add("busy"); if (btn) btn.disabled = true;
+  try { await fn(); if (okMsg) toast(okMsg); await Promise.all([liRefresh(true), liLoadLib()]); }
+  catch (e) { if (e instanceof AuthError) openAuth(); else toast(e.message); }
+  finally { card?.classList.remove("busy"); if (btn) btn.disabled = false; }
+}
+
+function renderLiStatus(st) {
+  const iss = $("liIssues");
+  const issues = [...st.issues, ...st.sources.errors.map((e) => "Couldn't read your work — " + e)];
+  iss.hidden = !issues.length;
+  iss.replaceChildren(el("h3", {}, "⚠ Finish setup"), el("ul", {}, issues.map((i) => el("li", {}, i))));
+
+  const c = st.linkedin;
+  const conn = $("liConn"); conn.replaceChildren();
+  if (c.connected) {
+    conn.append(el("span", { class: "status st-done" }, el("span", { class: "ic" }, "✓"), "Connected"), " ",
+      el("span", { style: "color:var(--text-2)" }, `${c.name || ""} · renew in ${c.days_left} days `),
+      el("button", { class: "btn", style: "margin-left:4px", onclick: (e) => liConnect(e.target) }, "Reconnect"),
+      el("button", { class: "btn danger", style: "margin-left:4px", onclick: (e) => liAction(e.target, () => api("/linkedin/disconnect", { method: "POST" }), "Disconnected") }, "Disconnect"));
+  } else {
+    conn.append(el("span", { class: "status st-failed" }, el("span", { class: "ic" }, "✕"), c.expired ? "Expired" : "Not connected"), " ",
+      el("button", { class: "btn primary", style: "margin-left:4px", disabled: !st.linkedin_app_configured, title: st.linkedin_app_configured ? "" : "Add LINKEDIN_CLIENT_ID / SECRET to .env first", onclick: (e) => liConnect(e.target) }, "Connect LinkedIn"));
+  }
+  $("liEnabled").checked = st.enabled;
+  $("liEnabledText").textContent = st.enabled ? "On — drafting and posting on schedule" : "Paused — nothing will be drafted or posted";
+  $("liAuto").checked = st.auto_publish;
+  $("liAutoText").textContent = st.auto_publish ? "Autopilot — posts publish without review" : "Review — you approve each post";
+  const sch = st.schedule;
+  $("liSched").textContent = `${sch.days.map((d) => d[0].toUpperCase() + d.slice(1)).join(" & ")} at ${sch.time} (${sch.timezone}) · drafted ${sch.draft_ahead_hours}h ahead`;
+  $("liSchedHint").textContent = st.enabled ? "" : "paused";
+  const src = [];
+  if (st.sources.github) src.push(`GitHub @${st.sources.github}`);
+  if (st.sources.zenodo) src.push(`Zenodo ${st.sources.zenodo}`);
+  $("liSources").textContent = src.join(" · ") || "not configured";
+
+  const n = st.counts;
+  $("li-review").textContent = fmtInt(n.draft);
+  $("li-approved").textContent = fmtInt(n.approved);
+  $("li-published").textContent = fmtInt(n.published);
+  $("li-failed").textContent = `${fmtInt(n.failed)} failed`;
+  const next = sch.next_slots[0];
+  $("li-next").textContent = next ? untilText(next).replace("in ", "") : "—";
+  $("li-next-sub").textContent = next ? fmtSlot(next) : "schedule invalid";
+
+  const bySlot = new Map(li.posts.filter((p) => !["skipped"].includes(p.status)).map((p) => [Math.round(p.slot_ts), p]));
+  const slots = $("liSlots"); slots.replaceChildren();
+  for (const ts of sch.next_slots) {
+    const p = bySlot.get(Math.round(ts));
+    const d = new Date(ts * 1000);
+    slots.append(el("li", { class: "slot" },
+      el("div", { class: "when" }, d.toLocaleDateString([], { weekday: "short" }), el("small", {}, d.toLocaleDateString([], { month: "short", day: "numeric" }) + " · " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))),
+      el("div", { class: "what", title: p ? p.title : "" }, p ? p.title : (ts - Date.now() / 1000 > sch.draft_ahead_hours * 3600 ? `Drafted ${untilText(ts - sch.draft_ahead_hours * 3600)}` : "Drafting soon…")),
+      p ? liBadge(p.status) : el("span", { class: "status st-cancelled" }, "Open")));
+  }
+}
+
+function renderLiPosts() {
+  const box = $("liPosts");
+  const f = li.filter;
+  let posts = li.posts.filter((p) => f === "upcoming" ? ["draft", "approved", "publishing", "failed"].includes(p.status) : p.status === f);
+  if (f === "upcoming") posts.sort((a, b) => a.slot_ts - b.slot_ts);
+  box.replaceChildren();
+  if (!posts.length) {
+    box.append(el("div", { class: "empty" }, f === "upcoming"
+      ? "No upcoming posts yet. The agent drafts each post ahead of its slot — or click “Write next post now”."
+      : f === "published" ? "Nothing published yet." : "No skipped posts."));
+    return;
+  }
+  for (const p of posts) box.append(postCard(p));
+}
+
+function postCard(p) {
+  const editable = ["draft", "approved", "failed"].includes(p.status);
+  const late = editable && p.slot_ts < Date.now() / 1000;
+  const head = el("div", { class: "post-h" },
+    el("span", { class: "when" }, p.status === "published" && p.published_at ? "Posted " + fmtSlot(p.published_at) : fmtSlot(p.slot_ts)),
+    liBadge(p.status),
+    el("span", { class: "style-chip" }, STYLE_LABEL[p.style] || p.style),
+    el("span", { class: "src" }, p.kind === "zenodo" ? "Paper: " : p.kind === "github" ? "Repo: " : "",
+      p.url ? el("a", { href: p.url, target: "_blank", rel: "noopener" }, p.title) : p.title),
+    late ? el("span", { class: "status st-failed", title: "This slot has passed — publish now or skip" }, "Overdue") : null);
+
+  const card = el("article", { class: "post", "data-id": p.id }, head);
+  const btn = (label, onclick, cls = "btn") => el("button", { class: cls, onclick }, label);
+  const foot = el("div", { class: "post-f" });
+
+  if (editable) {
+    const ta = el("textarea", { "aria-label": "Post text", maxlength: "3000" });
+    ta.value = li.dirty[p.id] ?? p.text;
+    const count = el("span", { class: "count" });
+    const save = btn("Save edits", (e) => liAction(e.target, async () => {
+      await api(`/linkedin/posts/${p.id}`, { method: "PATCH", body: JSON.stringify({ text: ta.value }) });
+      delete li.dirty[p.id];
+    }, "Saved"));
+    const upd = () => {
+      const n = ta.value.length;
+      count.textContent = `${n.toLocaleString()} / 3,000`;
+      count.classList.toggle("over", n > 3000);
+      const changed = ta.value !== p.text;
+      if (changed) li.dirty[p.id] = ta.value; else delete li.dirty[p.id];
+      save.hidden = !changed;
+    };
+    ta.addEventListener("input", upd);
+    card.append(ta);
+    if (p.error) card.append(el("div", { class: "box err" }, p.error));
+    upd();
+    const saveFirst = async () => {
+      if (li.dirty[p.id] != null) {
+        await api(`/linkedin/posts/${p.id}`, { method: "PATCH", body: JSON.stringify({ text: ta.value }) });
+        delete li.dirty[p.id];
+      }
+    };
+    if (p.status === "draft") foot.append(btn("✓ Approve", (e) => liAction(e.target, async () => { await saveFirst(); await api(`/linkedin/posts/${p.id}/approve`, { method: "POST" }); }, "Approved — it will post at its scheduled time"), "btn primary"));
+    if (p.status === "approved") foot.append(btn("Back to draft", (e) => liAction(e.target, () => api(`/linkedin/posts/${p.id}/unapprove`, { method: "POST" }))));
+    if (p.status === "failed") foot.append(btn("Back to draft", (e) => liAction(e.target, () => api(`/linkedin/posts/${p.id}/unapprove`, { method: "POST" }))));
+    foot.append(save);
+    foot.append(btn(p.status === "failed" ? "Retry publish" : "Publish now", (e) => {
+      if (!confirm("Publish this post to LinkedIn right now?")) return;
+      liAction(e.target, async () => { await saveFirst(); const r = await api(`/linkedin/posts/${p.id}/publish`, { method: "POST" }); if (r.status === "failed") throw new Error(r.error); }, "Posted to LinkedIn");
+    }, p.status === "failed" ? "btn primary" : "btn"));
+    foot.append(btn("↻ Rewrite", (e) => {
+      if (li.dirty[p.id] != null && !confirm("Discard your edits and let the agent rewrite this post?")) return;
+      liAction(e.target, async () => { delete li.dirty[p.id]; await api(`/linkedin/posts/${p.id}/regenerate`, { method: "POST" }); }, "Rewritten");
+    }));
+    foot.append(el("div", { class: "spacer" }), count);
+    foot.append(btn("Skip", (e) => liAction(e.target, async () => { delete li.dirty[p.id]; await api(`/linkedin/posts/${p.id}/skip`, { method: "POST" }); }, "Skipped — a different topic will be drafted for this slot"), "btn danger"));
+  } else {
+    card.append(el("div", { class: "ro" }, p.text));
+    if (p.error && p.status !== "published") card.append(el("div", { class: "box err" }, p.error));
+    if (p.post_link) foot.append(el("a", { class: "btn primary", href: p.post_link, target: "_blank", rel: "noopener", style: "text-decoration:none" }, "View on LinkedIn ↗"));
+    foot.append(el("div", { class: "spacer" }), el("span", { class: "count" }, `${p.chars.toLocaleString()} characters`));
+    if (p.status === "skipped") foot.append(btn("Delete", (e) => liAction(e.target, () => api(`/linkedin/posts/${p.id}`, { method: "DELETE" }), "Deleted"), "btn danger"));
+  }
+  card.append(foot);
+  return card;
+}
+
+function renderLib() {
+  const box = $("liLib"); box.replaceChildren();
+  $("li-lib").textContent = li.loaded ? fmtInt(li.lib.length) : "—";
+  const gh = li.lib.filter((i) => i.kind === "github").length;
+  const pp = li.lib.length - gh;
+  $("li-lib-sub").textContent = li.loaded ? `${gh} repo${gh === 1 ? "" : "s"} · ${pp} paper${pp === 1 ? "" : "s"}` : "loading…";
+  if (!li.lib.length) {
+    box.append(el("li", { class: "empty", style: "display:block" }, li.loaded
+      ? (li.libErrors.length ? li.libErrors.join(" · ") : "No repos or papers found. Check GITHUB_USERNAME and ZENODO_ORCID / ZENODO_AUTHOR in .env.")
+      : "Loading your work…"));
+    return;
+  }
+  const items = [...li.lib].sort((a, b) => (a.times_posted - b.times_posted) || (b.date > a.date ? 1 : -1));
+  for (const it of items) {
+    const meta = [it.kind === "zenodo" ? (it.details.type || "Paper") : (it.details.language || "Repo"), it.date.slice(0, 10)];
+    meta.push(it.times_posted ? `posted ${it.times_posted}×` : "not posted yet");
+    box.append(el("li", {},
+      el("span", { class: "kind", title: it.kind === "zenodo" ? "Zenodo" : "GitHub" }, it.kind === "zenodo" ? "Z" : "GH"),
+      el("div", { style: "min-width:0" },
+        el("div", { class: "t", title: it.title }, el("a", { href: it.url, target: "_blank", rel: "noopener" }, it.title)),
+        el("div", { class: "m", title: it.description }, meta.join(" · ") + (it.description ? " — " + it.description : ""))),
+      it.queued ? el("span", { class: "status st-running" }, "Queued")
+        : el("button", { class: "btn", onclick: (e) => liAction(e.target, () => api("/linkedin/posts", { method: "POST", body: JSON.stringify({ item_key: it.key }) }), "Draft written — review it in Posts") }, "Draft post")));
+  }
+}
+
+async function liConnect(btn) {
+  try { const r = await api("/linkedin/connect", { method: "POST" }); location.href = r.auth_url; }
+  catch (e) { if (e instanceof AuthError) openAuth(); else toast(e.message); }
+}
+
+async function liRefresh(force = false) {
+  if ($("view-linkedin").hidden && !force) return;
+  const [st, posts] = await Promise.all([api("/linkedin/status"), api("/linkedin/posts?limit=100")]);
+  li.status = st; li.posts = posts;
+  renderLiStatus(st);
+  // Don't yank the text box away from someone who is typing.
+  if (!document.activeElement?.closest?.("#liPosts")) renderLiPosts();
+}
+async function liLoadLib(refresh = false) {
+  try {
+    const r = await api("/linkedin/library" + (refresh ? "?refresh=true" : ""));
+    li.lib = r.items; li.libErrors = r.errors;
+  } catch (e) { if (e instanceof AuthError) { openAuth(); return; } li.libErrors = [e.message]; }
+  li.loaded = true; renderLib();
+}
+
+$("liTabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  li.filter = b.dataset.f;
+  for (const x of $("liTabs").children) x.setAttribute("aria-selected", String(x === b));
+  renderLiPosts();
+});
+$("liEnabled").addEventListener("change", (e) => liAction(null, () => api("/linkedin/settings", { method: "POST", body: JSON.stringify({ enabled: e.target.checked }) })));
+$("liAuto").addEventListener("change", (e) => {
+  if (e.target.checked && !confirm("Autopilot publishes posts at their scheduled time without your review. Turn it on?")) { e.target.checked = false; return; }
+  liAction(null, () => api("/linkedin/settings", { method: "POST", body: JSON.stringify({ auto_publish: e.target.checked }) }));
+});
+$("liDraftBtn").addEventListener("click", (e) => liAction(e.target, () => api("/linkedin/posts", { method: "POST", body: "{}" }), "Draft written — review it below"));
+$("liRefresh").addEventListener("click", (e) => { e.target.disabled = true; liLoadLib(true).finally(() => { e.target.disabled = false; }); });
+
+function showView() {
+  const v = location.hash === "#linkedin" ? "linkedin" : "agent";
+  $("view-agent").hidden = v !== "agent";
+  $("view-linkedin").hidden = v !== "linkedin";
+  $("nav-agent").setAttribute("aria-current", v === "agent" ? "page" : "false");
+  $("nav-linkedin").setAttribute("aria-current", v === "linkedin" ? "page" : "false");
+  if (v === "linkedin") {
+    liRefresh(true).catch((e) => { if (e instanceof AuthError) openAuth(); else toast(e.message); });
+    if (!li.loaded) liLoadLib();
+  }
+}
+addEventListener("hashchange", showView);
+setInterval(() => {
+  if (state.paused || $("view-linkedin").hidden) return;
+  liRefresh().catch(() => {});
+  if (li.loaded) liLoadLib();  // cheap: the server caches repos/papers for 30 min
+}, 5000);
+showView();
 
 tick(true).then(schedule);
 </script>

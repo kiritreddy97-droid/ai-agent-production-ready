@@ -27,6 +27,23 @@ class Settings:
     TASKS_DB: str     = os.getenv("TASKS_DB", "tasks.db")
     EVENT_BUFFER: int = int(os.getenv("EVENT_BUFFER", "500"))
 
+    # LinkedIn autopilot (see campaign.py)
+    GITHUB_USERNAME: str = os.getenv("GITHUB_USERNAME", "")
+    GITHUB_TOKEN: str    = os.getenv("GITHUB_TOKEN", "")
+    GITHUB_EXCLUDE: str  = os.getenv("GITHUB_EXCLUDE", "")
+    ZENODO_ORCID: str    = os.getenv("ZENODO_ORCID", "")
+    ZENODO_AUTHOR: str   = os.getenv("ZENODO_AUTHOR", "")
+    LINKEDIN_CLIENT_ID: str     = os.getenv("LINKEDIN_CLIENT_ID", "")
+    LINKEDIN_CLIENT_SECRET: str = os.getenv("LINKEDIN_CLIENT_SECRET", "")
+    LINKEDIN_REDIRECT_URI: str  = os.getenv("LINKEDIN_REDIRECT_URI",
+                                            "http://localhost:8000/linkedin/callback")
+    LINKEDIN_API_VERSION: str   = os.getenv("LINKEDIN_API_VERSION", "")
+    LINKEDIN_POST_DAYS: str     = os.getenv("LINKEDIN_POST_DAYS", "mon,thu")
+    LINKEDIN_POST_TIME: str     = os.getenv("LINKEDIN_POST_TIME", "09:00")
+    LINKEDIN_TIMEZONE: str      = os.getenv("LINKEDIN_TIMEZONE", "UTC")
+    LINKEDIN_AUTO_PUBLISH: bool = os.getenv("LINKEDIN_AUTO_PUBLISH", "false").lower() == "true"
+    LINKEDIN_DRAFT_AHEAD_HOURS: int = int(os.getenv("LINKEDIN_DRAFT_AHEAD_HOURS", "48"))
+
     def validate(self):
         if not self.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY not set. Copy .env.example to .env")

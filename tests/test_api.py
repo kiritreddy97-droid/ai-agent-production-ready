@@ -111,3 +111,55 @@ def test_task_endpoints_require_auth(client, monkeypatch):
     for path in ("/api/overview", "/api/events", "/tasks"):
         assert client.get(path).status_code == 401
     assert client.post("/tasks", json={"prompt": "x"}).status_code == 401
+
+
+# ─── LinkedIn autopilot ───────────────────────────────────────────────────────
+
+def test_linkedin_status_and_settings(client):
+    s = client.get("/linkedin/status").json()
+    assert {"linkedin", "schedule", "issues", "counts"} <= set(s)
+    assert client.post("/linkedin/settings", json={"enabled": False}).json()["enabled"] is False
+    assert client.post("/linkedin/settings", json={"enabled": True}).json()["enabled"] is True
+
+
+def test_linkedin_callback_rejects_bad_state_and_escapes(client):
+    r = client.get("/linkedin/callback?code=x&state=forged")
+    assert r.status_code == 400 and "invalid or expired" in r.text
+    r = client.get("/linkedin/callback?error=x&error_description=<script>alert(1)</script>")
+    assert r.status_code == 400 and "<script>" not in r.text and "&lt;script&gt;" in r.text
+
+
+def test_linkedin_connect_requires_app_credentials(client, monkeypatch):
+    monkeypatch.setattr(api.settings, "LINKEDIN_CLIENT_ID", "")
+    r = client.post("/linkedin/connect")
+    assert r.status_code == 409 and "LINKEDIN_CLIENT_ID" in r.json()["detail"]
+
+
+def test_linkedin_post_flow_via_api(client, monkeypatch):
+    from sources import WorkItem
+    item = WorkItem("github:me/x", "github", "x", "https://github.com/me/x", "A tool",
+                    "2026-10-01T00:00:00", {"full_name": "me/x", "topics": []})
+    c = api.campaign
+    monkeypatch.setattr(c, "_fetch_items", lambda: [item])
+    monkeypatch.setattr(c, "_items", [])
+    monkeypatch.setattr(c, "_writer", lambda *a: "A hook line\n\nSome body text here. #AI")
+    monkeypatch.setattr(c, "_context_for", lambda *a: {})
+    r = client.post("/linkedin/posts", json={})
+    assert r.status_code == 201
+    pid = r.json()["id"]
+    assert client.patch(f"/linkedin/posts/{pid}", json={"text": "Edited #AI"}).json()["text"] == "Edited #AI"
+    assert client.post(f"/linkedin/posts/{pid}/approve").json()["status"] == "approved"
+    assert client.post(f"/linkedin/posts/{pid}/approve").status_code == 409
+    r = client.post(f"/linkedin/posts/{pid}/publish")
+    assert r.status_code == 409 and "not connected" in r.json()["detail"]
+    assert client.post(f"/linkedin/posts/{pid}/bogus").status_code == 422
+    assert client.get("/linkedin/library").json()["items"][0]["queued"] is True
+    assert client.delete(f"/linkedin/posts/{pid}").json() == {"deleted": pid}
+
+
+def test_linkedin_endpoints_require_auth(client, monkeypatch):
+    monkeypatch.setattr(api.settings, "API_KEY", "secret")
+    for path in ("/linkedin/status", "/linkedin/posts", "/linkedin/library"):
+        assert client.get(path).status_code == 401
+    assert client.post("/linkedin/connect").status_code == 401
+    assert client.get("/linkedin/callback?state=x&code=y").status_code == 400  # reachable, state-checked
